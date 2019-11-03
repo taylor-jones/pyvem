@@ -28,7 +28,7 @@ class VscManager():
 
         # determine the output directory and specified extensions
         self.keep = kwargs.get('keep')
-        self.output = kwargs.get('output')
+        self.output = kwargs.get('output_dir')
         self.extensions = kwargs.get('extensions')
 
     def _check_code_installed(self):
@@ -143,7 +143,7 @@ class VscManager():
         Installs an individual VSIX extensions at a specified path.
         """
         print(f'Installing {os.path.basename(path)}')
-        os.system(f'code --install-extension {path}')
+        # os.system(f'code --install-extension {path}')
 
     def install(self, path=None):
         """
@@ -261,9 +261,12 @@ def main():
     parser = configargparse.ArgParser(formatter_class=CustomFormatter)
     parser.add('command', nargs='?', help='The VSCode Extension Manager command to execute: [download|install|update]')
     parser.add('-c', '--config', is_config_file=True, help='config file path')
-    parser.add('-o', '--output', help='The directory where the extensions will be downloaded.')
+    parser.add('-o', '--output-dir', help='The directory where the extensions will be downloaded.')
     parser.add('-e', '--extensions', help='A string, list, or directory of extensions to download/update/install')
     parser.add('--keep', default=False, action='store_true', help='If set, downloaded .vsix files will not be deleted')
+    parser.add('--ssh-host', default='localhost', help='SSH Host IP or network name')
+    parser.add('--ssh-port', default=22, help='SSH Port')
+    parser.add('--ssh-user', default='user', help='SSH username')
 
     # parse the configuration options
     options = parser.parse_args()
@@ -279,7 +282,7 @@ def main():
     cmd = options.command
     vsm = VscManager(
         extensions=options.extensions, 
-        output=options.output,
+        output_dir=options.output_dir,
         keep=cmd=='download' or cmd=='install' or options.keep
     )
 

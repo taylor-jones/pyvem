@@ -1,0 +1,4 @@
+# ssh tunnel
+ssh-host: 192.168.95.100
+ssh-port: 22
+ssh-user: taylor

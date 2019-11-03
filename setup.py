@@ -13,7 +13,8 @@ setup(
         ]
     },
     install_requires=[
-        'configargparse'
+        'configargparse',
+        'paramiko'
     ],
     python_requires='>=3.6'
 )
