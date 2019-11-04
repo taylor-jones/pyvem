@@ -1,6 +1,6 @@
 """
 Download and install the latest versions of 
-VSCode extensions with cURL.
+VSCode extensions with cURL over a remote network.
 """
 
 import os
@@ -10,6 +10,7 @@ import configargparse
 from datetime import datetime
 from pathlib import Path
 from shutil import rmtree
+from pyvsc.pyvsc.tunnel import Tunnel
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -17,14 +18,19 @@ _LOGGER = logging.getLogger(__name__)
 
 class VscManager():
     def __init__(self, **kwargs):
-        print(kwargs)
-
         self._output = None
         self._extensions = None
         self._extensions_dir = None
 
         # make sure VS Code is installed
         self._check_code_installed()
+
+        # establish the ssh tunnel
+        self.tunnel = Tunnel(
+            host=kwargs.get('ssh_host'),
+            port=kwargs.get('ssh_port'),
+            user=kwargs.get('ssh_use')
+        )
 
         # determine the output directory and specified extensions
         self.keep = kwargs.get('keep')
@@ -67,6 +73,7 @@ class VscManager():
             # attempt to create the directory (if not exists)
             try:
                 p.mkdir(parents=True, exist_ok=True)
+                self.tunnel.send(f'mkdir -p {d}')
                 return d
             except Exception as e:
                 _LOGGER.error(f'Could not validate directory: {d}')
@@ -108,13 +115,20 @@ class VscManager():
 
         if self._output_preexisted == True:
             # just remove the extension files
-            print('just removing the files')
+            for ext in self.extensions:
+                try:
+                    ext_name = f'{self.output}/{ext}.vsix'
+                    os.system(f'rm -f {ext_name}')
+                    _LOGGER.debug(f'Removed {ext_name}')
+                except Exception as e:
+                    _LOGGER.error(f'Failed to removed {ext_name}')
         else:
+            # remove the whole directory.
             try:
                 rmtree(self._output)
-                _LOGGER.info(f'Removed directory: {self._output}')
+                _LOGGER.debug(f'Removed directory: {self._output}')
             except IOError as e:
-                _LOGGER.error(f'Unable to remove directory: {self._output}')
+                _LOGGER.error(f'Failed to remove directory: {self._output}')
 
     def __del__(self):
         if not self.keep:
@@ -131,19 +145,38 @@ class VscManager():
 
         _LOGGER.info(f'Downloading extensions to {self.output}')
 
-        # download each of the extensions to the output directory
+        # removes the .vsix from any extensions
+        def no_vsix(ext):
+            return ext.rstrip('.vsix')
+
+        # download each of the extensions to the output 
+        # directory in the ssh tunnel.
         for ext in self.extensions:
             url = self._vsix_url(ext)
             cmd = self._vsix_curl(ext, url)
             _LOGGER.info(f'Downloading {ext}')
-            os.system(cmd)
+
+            # download the extension
+            self.tunnel.send(cmd)
+
+            # transfer the extension
+            ext_name = f'{self.output}/{ext}.vsix'
+            _LOGGER.debug(f'Transferring {ext_name} from remote')
+            self.tunnel.get(ext_name, ext_name)
+
+            # delete the extension from the remote
+            _LOGGER.debug(f'Deleting {ext_name} from remote')
+            self.tunnel.send(f'rm -f {ext_name}')
+
+        # delete the remote directory
+        self.tunnel.rmdir(self.output)
 
     def _install_extension(self, path):
         """
         Installs an individual VSIX extensions at a specified path.
         """
-        print(f'Installing {os.path.basename(path)}')
-        # os.system(f'code --install-extension {path}')
+        _LOGGER.info(f'Installing {os.path.basename(path)}')
+        os.system(f'code --install-extension {path}')
 
     def install(self, path=None):
         """
@@ -172,7 +205,6 @@ class VscManager():
         self.download()
         self.install(self.output)
 
-
     @property
     def output(self):
         return self._output
@@ -188,7 +220,6 @@ class VscManager():
 
         # validate the output directory
         self._output = self._valid_dir(d, True)
-
 
     @property
     def extensions(self):
@@ -283,7 +314,10 @@ def main():
     vsm = VscManager(
         extensions=options.extensions, 
         output_dir=options.output_dir,
-        keep=cmd=='download' or cmd=='install' or options.keep
+        keep=cmd=='download' or cmd=='install' or options.keep,
+        ssh_host=options.ssh_host,
+        ssh_port=options.ssh_port,
+        ssh_user=options.ssh_user
     )
 
     # perform the desired operation
