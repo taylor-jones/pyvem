@@ -1,7 +1,8 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='vsc-manager',
+    name='vscm',
+    description='Visual Studio Code core & extensions management via SSH tunneling',
     version='0.1',
     packages=find_packages(include=[
         'pyvsc', 
@@ -9,7 +10,7 @@ setup(
     ]),
     entry_points={
         'console_scripts': [
-            'vsc-manager = pyvsc.pyvsc.manager:main',
+            'vscm = pyvsc.pyvsc.manager:main',
         ]
     },
     install_requires=[

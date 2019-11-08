@@ -22,6 +22,9 @@ class VscManager():
         self._extensions = None
         self._extensions_dir = None
 
+        # check whether or not to use the VS Code Insiders build
+
+
         # make sure VS Code is installed
         self._check_code_installed()
 
@@ -236,14 +239,14 @@ class VscManager():
         # we need to first check if the string represents a directory.
         
         elif type(exts) is str:
-            # if the string represents a valid directory,
-            # then get a list of all the extensions in the directory.
-            d = self._valid_dir(exts)
-            if d:
-                self._extensions_dir = d
-                exts = self._dirfiles(d)
+            # if a valid directory was provided, then get a list 
+            # of all the extensions in the directory.
+            directory = self._valid_dir(exts)
+            if directory:
+                self._extensions_dir = directory
+                exts = self._dirfiles(directory)
 
-            # If a literal string of extension names, 
+            # If a literal string of extension names was provided,
             # convert the string to a list of extensions.
             else:
                 exts = re.split(';|,', exts)
@@ -257,8 +260,6 @@ class VscManager():
 
         # set the instance-level extensions
         self._extensions = exts
-
-
 
 
 class CustomFormatter(configargparse.HelpFormatter):
@@ -287,17 +288,21 @@ class CustomFormatter(configargparse.HelpFormatter):
 
 
 def main():
+    # setup logging
     logging.basicConfig(level=logging.INFO, format='%(message)s')
 
+    # specify the parser options
     parser = configargparse.ArgParser(formatter_class=CustomFormatter)
     parser.add('command', nargs='?', help='The VSCode Extension Manager command to execute: [download|install|update]')
     parser.add('-c', '--config', is_config_file=True, help='config file path')
     parser.add('-o', '--output-dir', help='The directory where the extensions will be downloaded.')
     parser.add('-e', '--extensions', help='A string, list, or directory of extensions to download/update/install')
-    parser.add('--keep', default=False, action='store_true', help='If set, downloaded .vsix files will not be deleted')
     parser.add('--ssh-host', default='localhost', help='SSH Host IP or network name')
     parser.add('--ssh-port', default=22, help='SSH Port')
     parser.add('--ssh-user', default='user', help='SSH username')
+    parser.add('--keep', default=False, action='store_true', help='If set, downloaded .vsix files will not be deleted')
+    parser.add('--insiders', default=False, action='store_true', help='Install extensions to VS Code Insiders')
+    parser.add('--editor', default=False, action='store_true', help='Perform the command for the editor itself, not the extensions')
 
     # parse the configuration options
     options = parser.parse_args()
@@ -314,10 +319,12 @@ def main():
     vsm = VscManager(
         extensions=options.extensions, 
         output_dir=options.output_dir,
-        keep=cmd=='download' or cmd=='install' or options.keep,
         ssh_host=options.ssh_host,
         ssh_port=options.ssh_port,
-        ssh_user=options.ssh_user
+        ssh_user=options.ssh_user,
+        keep=cmd=='download' or cmd=='install' or options.keep,
+        insiders=options.insiders,
+        editor=options.insiders,
     )
 
     # perform the desired operation

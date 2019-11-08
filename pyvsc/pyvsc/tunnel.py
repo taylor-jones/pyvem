@@ -8,7 +8,7 @@ logging.basicConfig(level=logging.INFO, format='%(message)s')
 
 class Tunnel:
     def __init__(self, **kwargs):
-        self.host = kwargs.get('host')
+        self.host = kwargs.get('host', getpass.getuser())
         self.port = kwargs.get('port')
         self.user = kwargs.get('user')
         self.connect()
@@ -17,8 +17,6 @@ class Tunnel:
         """
         Initialize the ssh client connection.
         """
-        is_connected = False
-
         # setup the ssh connection
         self.ssh = paramiko.SSHClient()
         self.ssh.load_system_host_keys()
@@ -71,7 +69,6 @@ class Tunnel:
         """
         self.ssh.exec_command(f'rm -rf {path}')
 
-
     def send(self, cmd):
         """
         Execute a command on the remote server.
@@ -79,7 +76,6 @@ class Tunnel:
         stdin, stdout, stderr = self.ssh.exec_command(cmd)
         output = ''.join(stdout.readlines())
         return output
-
 
     def __del__(self):
         """
