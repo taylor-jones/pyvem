@@ -5,6 +5,7 @@ VSCode extensions with cURL over a remote network.
 
 import os
 import re
+import platform
 import logging
 import configargparse
 from datetime import datetime
@@ -22,10 +23,10 @@ class VscManager():
         self._extensions = None
         self._extensions_dir = None
 
-        # check whether or not to use the VS Code Insiders build
-
-
-        # make sure VS Code is installed
+        # determine which version of the editor to work with, and make
+        # sure that version is installed and on the PATH
+        self.insiders = kwargs.get('insiders', False)
+        self.cmd = 'code-insiders' if self.insiders else 'code'
         self._check_code_installed()
 
         # establish the ssh tunnel
@@ -42,13 +43,16 @@ class VscManager():
 
     def _check_code_installed(self):
         """
-        Checks if VS Code is installed. Raises an error if not.
+        Checks if the specified version of VS Code is installed.
+        Raises an error if not.
         """
         try:
-            self.version = os.popen('code --version').read().splitlines()[0]
+            self.version = os.popen(f'{self.cmd} --version').read().splitlines()[0]
             return True
         except RuntimeError as e:
-            logging.error('Please install VS Code before running this program.')
+            logging.error(f'The command {self.cmd} is not on your path. ' \
+                'Please make sure the correct version of VS Code is installed ' \
+                'before running this program')
             exit(1)
 
     def _valid_dir(self, directory, create=False):
@@ -88,6 +92,30 @@ class VscManager():
         Returns a list of only the files from a given directory.
         """
         return [f.name for f in os.scandir(d) if f.is_file()]
+
+    def _vsc_url(self):
+        """
+        Returns a URL that can be used to download the latest version of
+        the specified VS Code editor.
+        """
+        operating_system = platform.system()
+        version = 'insider' if self.insiders else 'stable'
+
+        if operating_system == 'Linux':
+            return f'https://update.code.visualstudio.com/latest/linux-rpm-x64/{version}'
+        elif operating_system == 'Darwin':
+            return f'https://update.code.visualstudio.com/latest/darwin/{version}'
+        else:
+            print(f'Sorry, this program doesn\'t currently '
+            f' support {operating_system}')
+            exit(1)
+
+    def _vsc_curl(self, url):
+        """
+        Returns a cURL formatted command that can be executed
+        to download the VS Code editor.
+        """
+        return f'cd {self.output} && curl {url} -O'
 
     def _vsix_curl(self, extension, url):
         """
@@ -179,7 +207,7 @@ class VscManager():
         Installs an individual VSIX extensions at a specified path.
         """
         _LOGGER.info(f'Installing {os.path.basename(path)}')
-        os.system(f'code --install-extension {path}')
+        os.system(f'{self.cmd} --install-extension {path}')
 
     def install(self, path=None):
         """
@@ -301,8 +329,7 @@ def main():
     parser.add('--ssh-port', default=22, help='SSH Port')
     parser.add('--ssh-user', default='user', help='SSH username')
     parser.add('--keep', default=False, action='store_true', help='If set, downloaded .vsix files will not be deleted')
-    parser.add('--insiders', default=False, action='store_true', help='Install extensions to VS Code Insiders')
-    parser.add('--editor', default=False, action='store_true', help='Perform the command for the editor itself, not the extensions')
+    parser.add('-i', '--insiders', default=False, action='store_true', help='Install extensions to VS Code Insiders')
 
     # parse the configuration options
     options = parser.parse_args()
@@ -324,7 +351,6 @@ def main():
         ssh_user=options.ssh_user,
         keep=cmd=='download' or cmd=='install' or options.keep,
         insiders=options.insiders,
-        editor=options.insiders,
     )
 
     # perform the desired operation
