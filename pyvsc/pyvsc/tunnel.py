@@ -8,7 +8,7 @@ logging.basicConfig(level=logging.INFO, format='%(message)s')
 
 class Tunnel:
     def __init__(self, **kwargs):
-        self.host = kwargs.get('host', getpass.getuser())
+        self.host = kwargs.get('host') or getpass.getuser()
         self.port = kwargs.get('port')
         self.user = kwargs.get('user')
         self.connect()

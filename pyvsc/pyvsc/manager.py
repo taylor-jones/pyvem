@@ -17,7 +17,7 @@ from pyvsc.pyvsc.tunnel import Tunnel
 _LOGGER = logging.getLogger(__name__)
 
 
-class VscManager():
+class Manager():
     def __init__(self, **kwargs):
         self._output = None
         self._extensions = None
@@ -245,7 +245,7 @@ class VscManager():
         # if no directorty was provided, use a default, auto-generated 
         # directory in tmp using a known prefix #nd a timestamp.
         if directory is None:
-            d = f'/tmp/vsc-manager-{int(datetime.now().timestamp())}'
+            d = f'/tmp/vscm-{int(datetime.now().timestamp())}'
         else:
             d = os.path.abspath(directory)
 
@@ -343,7 +343,7 @@ def main():
 
     # initialize an instance of the VSC Manager
     cmd = options.command
-    vsm = VscManager(
+    manager = Manager(
         extensions=options.extensions, 
         output_dir=options.output_dir,
         ssh_host=options.ssh_host,
@@ -355,11 +355,11 @@ def main():
 
     # perform the desired operation
     if cmd == 'download':
-        vsm.download()
+        manager.download()
     elif cmd == 'install':
-        vsm.install()
+        manager.install()
     elif cmd == 'update':
-        vsm.update()
+        manager.update()
     else:
         print(parser.format_help())
 
