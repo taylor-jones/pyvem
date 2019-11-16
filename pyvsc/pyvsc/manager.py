@@ -345,8 +345,6 @@ def main():
     for key,value in vars(options).items():
         _LOGGER.debug(f'  {key}: \t{value}')
 
-    return
-
     # initialize an instance of the VSC Manager
     cmd = options.command
     manager = Manager(
