@@ -1,16 +1,16 @@
-## VSCode Extension Management CLI
+## VS Code Extension Management CLI
 
 Download, install, and/or update VS Code extensions over SSH.
 
 ```sh
 Defaults:
-  --ssh-host:        localhost
-  --ssh-port:        22
-  --ssh-user:        user
+  --ssh-host:        `localhost`
+  --ssh-port:        `22`
+  --ssh-user:        `getpass.getuser()`
 
 usage: vscm [-h] [-c CONFIG] [-o OUTPUT_DIR] [-e EXTENSIONS]
             [--ssh-host SSH_HOST] [--ssh-port SSH_PORT] [--ssh-user SSH_USER]
-            [--keep] [-i]
+            [--k] [-i]
             [command]
 
 Args that start with '--' (eg. -o) can also be set in a config file (specified
@@ -34,6 +34,6 @@ optional arguments:
   --ssh-host SSH_HOST   SSH Host IP or network name
   --ssh-port SSH_PORT   SSH Port
   --ssh-user SSH_USER   SSH username
-  --keep                If set, downloaded .vsix files will not be deleted
+  -k, --keep            If set, downloaded .vsix files will not be deleted
   -i, --insiders        Install extensions to VS Code Insiders
 ```
