@@ -8,10 +8,12 @@ import re
 import platform
 import logging
 import configargparse
+
 from datetime import datetime
 from pathlib import Path
 from shutil import rmtree
-from pyvsc.pyvsc.tunnel import Tunnel
+from getpass import getuser
+from pyvsc.tunnel import Tunnel
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -327,8 +329,8 @@ def main():
     parser.add('-e', '--extensions', help='A string, list, or directory of extensions to download/update/install')
     parser.add('--ssh-host', default='localhost', help='SSH Host IP or network name')
     parser.add('--ssh-port', default=22, help='SSH Port')
-    parser.add('--ssh-user', default='user', help='SSH username')
-    parser.add('--keep', default=False, action='store_true', help='If set, downloaded .vsix files will not be deleted')
+    parser.add('--ssh-user', default=getuser(), help='SSH username')
+    parser.add('-k', '--keep', default=False, action='store_true', help='If set, downloaded .vsix files will not be deleted')
     parser.add('-i', '--insiders', default=False, action='store_true', help='Install extensions to VS Code Insiders')
 
     # parse the configuration options
