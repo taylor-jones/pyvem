@@ -87,7 +87,6 @@ class Manager():
             except Exception as e:
                 _LOGGER.error(f'Could not validate directory: {d}')
                 exit(1)
-                return False
 
     def _dirfiles(self, d):
         """
