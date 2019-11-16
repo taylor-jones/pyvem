@@ -4,9 +4,9 @@ Download, install, and/or update VS Code extensions over SSH.
 
 ```sh
 Defaults:
-  --ssh-host:        `localhost`
-  --ssh-port:        `22`
-  --ssh-user:        `getpass.getuser()`
+  --ssh-host:        localhost
+  --ssh-port:        22
+  --ssh-user:        getpass.getuser()
 
 usage: vscm [-h] [-c CONFIG] [-o OUTPUT_DIR] [-e EXTENSIONS]
             [--ssh-host SSH_HOST] [--ssh-port SSH_PORT] [--ssh-user SSH_USER]
