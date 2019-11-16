@@ -35,7 +35,7 @@ class Manager():
         self.tunnel = Tunnel(
             host=kwargs.get('ssh_host'),
             port=kwargs.get('ssh_port'),
-            user=kwargs.get('ssh_use')
+            user=kwargs.get('ssh_user')
         )
 
         # determine the output directory and specified extensions
@@ -52,7 +52,7 @@ class Manager():
             self.version = os.popen(f'{self.cmd} --version').read().splitlines()[0]
             return True
         except RuntimeError as e:
-            logging.error(f'The command {self.cmd} is not on your path. ' \
+            _LOGGER.error(f'The command {self.cmd} is not on your path. ' \
                 'Please make sure the correct version of VS Code is installed ' \
                 'before running this program')
             exit(1)
@@ -244,14 +244,8 @@ class Manager():
 
     @output.setter
     def output(self, directory):
-        # if no directorty was provided, use a default, auto-generated 
-        # directory in tmp using a known prefix #nd a timestamp.
-        if directory is None:
-            d = f'/tmp/vscm-{int(datetime.now().timestamp())}'
-        else:
-            d = os.path.abspath(directory)
-
         # validate the output directory
+        d = os.path.abspath(directory)
         self._output = self._valid_dir(d, True)
 
     @property
@@ -262,15 +256,15 @@ class Manager():
     def extensions(self, exts):
         # if the user did not specify any extensions, we'll assume that
         # they want to update all of their currently installed extensions.
-        if exts is None:
+        if exts is None or exts == '*':
             exts = os.popen('code --list-extensions').read().splitlines()
 
         # otherwise, if we were given a string of one or more extensions, 
         # we need to first check if the string represents a directory.
-        
+
         elif type(exts) is str:
-            # if a valid directory was provided, then get a list 
-            # of all the extensions in the directory.
+            # if a valid directory was provided, then get a list of all the 
+            # extensions in the directory.
             directory = self._valid_dir(exts)
             if directory:
                 self._extensions_dir = directory
@@ -319,29 +313,40 @@ class CustomFormatter(configargparse.HelpFormatter):
 
 def main():
     # setup logging
-    logging.basicConfig(level=logging.INFO, format='%(message)s')
+    logging.basicConfig(format='%(message)s', level=logging.INFO)
 
     # specify the parser options
     parser = configargparse.ArgParser(formatter_class=CustomFormatter)
     parser.add('command', nargs='?', help='The VSCode Extension Manager command to execute: [download|install|update]')
     parser.add('-c', '--config', is_config_file=True, help='config file path')
-    parser.add('-o', '--output-dir', help='The directory where the extensions will be downloaded.')
-    parser.add('-e', '--extensions', help='A string, list, or directory of extensions to download/update/install')
+    parser.add('-o', '--output-dir', default=f'/tmp/vsc-{int(datetime.now().timestamp())}', help='The directory where the extensions will be downloaded.')
+    parser.add('-e', '--extensions', default='*', help='A string, list, or directory of extensions to download/update/install')
+    parser.add('-k', '--keep', default=False, action='store_true', help='If set, downloaded .vsix files will not be deleted')
+    parser.add('-i', '--insiders', default=False, action='store_true', help='Install extensions to VS Code Insiders instead of VS Code')
+    parser.add('-v', '--verbose', default=False, action='store_true', help='Display more program output')
     parser.add('--ssh-host', default='localhost', help='SSH Host IP or network name')
     parser.add('--ssh-port', default=22, help='SSH Port')
     parser.add('--ssh-user', default=getuser(), help='SSH username')
-    parser.add('-k', '--keep', default=False, action='store_true', help='If set, downloaded .vsix files will not be deleted')
-    parser.add('-i', '--insiders', default=False, action='store_true', help='Install extensions to VS Code Insiders')
 
     # parse the configuration options
     options = parser.parse_args()
-    print(parser.format_values())
+
+    # if verbose mode was requested, update the logging level
+    if options.verbose:
+        _LOGGER.setLevel(__debug__)
 
     # if no actionable command was provided, just print
     # the help output, but don't execute anything else.
     if not options.command:
         print(parser.format_help())
         return
+
+    # print startup config
+    _LOGGER.debug('vsc started with the following options:')
+    for key,value in vars(options).items():
+        _LOGGER.debug(f'  {key}: \t{value}')
+
+    return
 
     # initialize an instance of the VSC Manager
     cmd = options.command
