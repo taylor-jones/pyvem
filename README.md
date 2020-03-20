@@ -1,5 +1,7 @@
 ## VS Code Extension Management CLI
 
+> Requires python3.6+
+
 Download, install, and/or update VS Code extensions over SSH.
 
 ```sh
