@@ -10,7 +10,7 @@ Defaults:
   --ssh-port:        22
   --ssh-user:        getpass.getuser()
 
-usage: vscm [-h] [-c CONFIG] [-o OUTPUT_DIR] [-e EXTENSIONS]
+usage: vsc [-h] [-c CONFIG] [-o OUTPUT_DIR] [-e EXTENSIONS]
             [--ssh-host SSH_HOST] [--ssh-port SSH_PORT] [--ssh-user SSH_USER]
             [--k] [-i]
             [command]
