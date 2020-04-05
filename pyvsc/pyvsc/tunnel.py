@@ -3,12 +3,12 @@ import getpass
 import socket
 import logging
 
-_LOGGER = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format='%(message)s')
+LOGGER = logging.getLogger(__name__)
+
 
 class Tunnel:
     def __init__(self, **kwargs):
-        self.host = kwargs.get('host') or getpass.getuser()
+        self.host = kwargs.get('host')
         self.port = kwargs.get('port')
         self.user = kwargs.get('user')
         self.connect()
@@ -23,16 +23,17 @@ class Tunnel:
         self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy)
 
         # make sure we get a password
-        password = getpass.getpass("password: ")
+        password = getpass.getpass('%s@%s password: ' % (self.user, self.host))
 
         # try making the ssh connection
         try:
             self.ssh.connect(
-                self.host, 
-                port=self.port, 
-                username=self.user, 
-                password=password)
-            _LOGGER.info(f'Connected to {self.host}')
+                self.host,
+                port=self.port,
+                username=self.user,
+                password=password
+            )
+            LOGGER.info('Connected to host: %s' % (self.host))
         
             # setup the sftp connection
             t = self.ssh.get_transport()
@@ -47,7 +48,7 @@ class Tunnel:
             socket.error,
         ) as e:
             print(e)
-            _LOGGER.error(f'Failed to connect to {self.host}')
+            LOGGER.error('Failed to connect to host: %s' % (self.host))
             exit(1)
 
     def get(self, remote_path, local_path):
@@ -67,7 +68,7 @@ class Tunnel:
         """
         Remove a specified directory.
         """
-        self.ssh.exec_command(f'rm -rf {path}')
+        self.ssh.exec_command('rm -rf %s' % (path))
 
     def send(self, cmd):
         """
@@ -81,7 +82,12 @@ class Tunnel:
         """
         Close the ssh connection.
         """
-        if self.ssh != None:
+        try:
             self.ssh.close()
-        if self.ftp != None:
+        except Exception as e:
+            LOGGER.warning('No ssh tunnel exists.')
+
+        try:
             self.ftp.close()
+        except Exception as e:
+            LOGGER.warning('No ftp connection exists.')
