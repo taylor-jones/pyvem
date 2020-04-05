@@ -3,33 +3,37 @@ Download and install the latest versions of
 VSCode extensions with cURL over a remote network.
 """
 
+from __future__ import print_function
+
 import os
 import re
 import platform
 import logging
 import configargparse
 
-from datetime import datetime
-from pathlib import Path
+from time import time
 from shutil import rmtree
 from getpass import getuser
+from glob import glob
 from pyvsc.tunnel import Tunnel
 
 
-_LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
+logging.basicConfig(
+  level=logging.INFO, 
+  format='%(asctime)s | %(module)s [%(levelname)s] - %(funcName)s:%(lineno)d - %(message)s'
+)
 
 
 class Manager():
     def __init__(self, **kwargs):
-        self._output = None
-        self._extensions = None
-        self._extensions_dir = None
+        self.extensions_dir = None
 
         # determine which version of the editor to work with, and make
         # sure that version is installed and on the PATH
         self.insiders = kwargs.get('insiders', False)
         self.cmd = 'code-insiders' if self.insiders else 'code'
-        self._check_code_installed()
+        self._check_editor_is_installed()
 
         # establish the ssh tunnel
         self.tunnel = Tunnel(
@@ -40,92 +44,102 @@ class Manager():
 
         # determine the output directory and specified extensions
         self.keep = kwargs.get('keep')
-        self.output = kwargs.get('output_dir')
-        self.extensions = kwargs.get('extensions')
+        self.output = self._process_output_directory(kwargs.get('output_dir'))
+        self.extensions = self._process_extensions(kwargs.get('extensions'))
 
-    def _check_code_installed(self):
+
+    def _check_editor_is_installed(self):
         """
         Checks if the specified version of VS Code is installed.
         Raises an error if not.
+        
+        Returns:
+            bool -- True, unless an exception is raised.
         """
         try:
-            self.version = os.popen(f'{self.cmd} --version').read().splitlines()[0]
+            self.version = os.popen('%s --version' % (
+              self.cmd)).read().splitlines()[0]
             return True
         except RuntimeError as e:
-            _LOGGER.error(f'The command {self.cmd} is not on your path. ' \
-                'Please make sure the correct version of VS Code is installed ' \
-                'before running this program')
+            LOGGER.error('The command "%s" is not on your path. Please ' \
+              'make sure the correct version of VS Code is installed before ' \
+              'running this program.' % (self.cmd))
             exit(1)
 
-    def _valid_dir(self, directory, create=False):
+
+    def _get_valid_dir(self, directory, create_if_not_exists=False):
         d = os.path.expanduser(directory)
         d = os.path.abspath(d)
+        dir_exists = os.path.isdir(d)
 
-        # check whether or not the output directory existed
-        # beforehand, so we know whether or not to delete the
-        # entire directory when we're done or just the extensions.
-        p = Path(d)
+        # if we're only checking on the existence of the directory, then don't
+        # try to create it and only return the dir path if it already existed.
+        if not create_if_not_exists:
+            return d if dir_exists else None
 
-        # if we're only checking on the existence of the directory,
-        # then don't try to create it and only return the directory
-        # path if it already existed.
-        if not create:
-            if p.is_dir():
-                return d
-            return False
-        
         # otherwise, try to create the directory, and return the
         # absolute path if creation was successful.
-        else:
-            self._output_preexisted = p.is_dir()
+        try:
+            self._output_preexisted = dir_exists
+            command = 'mkdir -p %s' % (d)
+            os.system(command)
+            self.tunnel.send(command)
+            return d
+        except Exception as e:
+          LOGGER.error('Could not validate directory: %s' % (d))
+          LOGGER.exception(e)
+          exit(1)
 
-            # attempt to create the directory (if not exists)
-            try:
-                p.mkdir(parents=True, exist_ok=True)
-                self.tunnel.send(f'mkdir -p {d}')
-                return d
-            except Exception as e:
-                _LOGGER.error(f'Could not validate directory: {d}')
-                exit(1)
 
-    def _dirfiles(self, d):
+    def _get_directory_vsix_files(self, directory):
         """
-        Returns a list of only the files from a given directory.
+        Returns a list of .vsix files from a specified directory
+        
+        Arguments:
+            directory {str} -- The path to a directory in the file system.
+        
+        Returns:
+            list -- A list of .vsix files in the directory.
         """
-        return [f.name for f in os.scandir(d) if f.is_file()]
+        return [f for f in os.listdir(directory) if f.endswith('.vsix')]
 
-    def _vsc_url(self):
+
+    def _get_vscode_url(self):
         """
         Returns a URL that can be used to download the latest version of
         the specified VS Code editor.
         """
         operating_system = platform.system()
         version = 'insider' if self.insiders else 'stable'
+        url_base = 'https://update.code.visualstudio.com/latest'
 
         if operating_system == 'Linux':
-            return f'https://update.code.visualstudio.com/latest/linux-rpm-x64/{version}'
+            return '%s/linux-rpm-x64/%s' % (url_base, version)
         elif operating_system == 'Darwin':
-            return f'https://update.code.visualstudio.com/latest/darwin/{version}'
+            return '%s/darwin/%s' % (url_base, version)
         else:
-            print(f'Sorry, this program doesn\'t currently '
-            f' support {operating_system}')
+            LOGGER.error('Sorry, pyvsc doesn\'t currently support %s' % (
+              operating_system))
             exit(1)
 
-    def _vsc_curl(self, url):
+
+    def _get_vscode_curl_command(self, url):
         """
         Returns a cURL formatted command that can be executed
         to download the VS Code editor.
         """
-        return f'cd {self.output} && curl {url} -O'
+        return 'cd %s && curl %s -O' % (self.output, url)
 
-    def _vsix_curl(self, extension, url):
+
+    def _get_vsix_curl_command(self, extension, url):
         """
         Returns a cURL command that can be used to download a specified
         VSCode extension, given the extension name and URL.
         """
-        return f'curl {url} -o {self.output}/{extension}.vsix'
+        return 'curl %s -o %s/%s.vsix' % (url, self.output, extension)
 
-    def _vsix_url(self, extension):
+
+    def _get_vsix_url(self, extension):
         """
         Builds the URL for a .vsix vscode extension, given the full 
         name of the extension in the format of {publisher}.{package}
@@ -133,100 +147,111 @@ class Manager():
         ex: ms-python.python
         """
         publisher, package = extension.split('.')
-        return f'https://{publisher}.gallery.vsassets.io' \
-            f'/_apis/public/gallery/publisher/{publisher}' \
-            f'/extension/{package}/latest/assetbyname' \
-            f'/Microsoft.VisualStudio.Services.VSIXPackage'
+        return 'https://%s.gallery.vsassets.io/_apis/public/gallery' \
+            '/publisher/%s/extension/%s/latest/assetbyname' \
+            '/Microsoft.VisualStudio.Services.VSIXPackage' % (
+              publisher, publisher, package)
 
-    def _cleanup(self):
+
+    def _cleanup_output_dir(self):
         """
-        Removes downloaded extension files from the output directory, or 
-        if the output directory wasn't pre-existing, removes the entire dir.
+        Removes downloaded extension files from the output directory, or if 
+        the output directory wasn't pre-existing, removes the entire directory.
+
+        If the output directory was pre-existing, we don't want to remove it
+        (since there might be other content in there that the user does not
+        want to remove), so we'll make sure to only remove the files associated
+        with the extensions we've downloaded.
+        
+        If the output directory was not pre-existing (meaning we created it
+        for the purpose of executing pyvsc), then we'll just remove the entire
+        directory.
         """
-        _LOGGER.info('Cleaning up downloaded extensions.')
+        LOGGER.info('Cleaning up downloaded extensions.')
 
         if self._output_preexisted == True:
             # just remove the extension files
             for ext in self.extensions:
                 try:
-                    ext_name = f'{self.output}/{ext}.vsix'
-                    os.system(f'rm -f {ext_name}')
-                    _LOGGER.debug(f'Removed {ext_name}')
+                    ext_name = '%s/%s.vsix' % (self.output, ext)
+                    os.system('rm -f %s' % (ext_name))
+                    LOGGER.debug('Removed extension: %s' % (ext_name))
                 except Exception as e:
-                    _LOGGER.error(f'Failed to removed {ext_name}')
+                    LOGGER.error('Failed to remove extension: %s' % (ext_name))
         else:
             # remove the whole directory.
             try:
-                rmtree(self._output)
-                _LOGGER.debug(f'Removed directory: {self._output}')
+                rmtree(self.output)
+                LOGGER.debug('Removed directory: %s' % (self.output))
             except IOError as e:
-                _LOGGER.error(f'Failed to remove directory: {self._output}')
+                LOGGER.error('Failed to remove directory: %s' % (self.output))
+
 
     def __del__(self):
         if not self.keep:
-            self._cleanup()
+            self._cleanup_output_dir()
+
 
     def download(self):
         if self.extensions == None:
-            _LOGGER.error('No extensions have been specified.')
+            LOGGER.error('No extensions have been specified.')
             exit(1)
 
         if self.output == None:
-            _LOGGER.error('No output directory has been specified.')
+            LOGGER.error('No output directory has been specified.')
             exit(1)
 
-        _LOGGER.info(f'Downloading extensions to {self.output}')
+        LOGGER.info('Downloading %d extensions to %s' % (
+          len(self.extensions), self.output))
 
-        # removes the .vsix from any extensions
-        def no_vsix(ext):
-            return ext.rstrip('.vsix')
-
-        # download each of the extensions to the output 
-        # directory in the ssh tunnel.
+        # download each extension to the output directory in the ssh tunnel.
         for ext in self.extensions:
-            url = self._vsix_url(ext)
-            cmd = self._vsix_curl(ext, url)
-            _LOGGER.info(f'Downloading {ext}')
+            url = self._get_vsix_url(ext)
+            cmd = self._get_vsix_curl_command(ext, url)
+            LOGGER.info('Downloading extension: %s' % (ext))
 
             # download the extension
             self.tunnel.send(cmd)
 
             # transfer the extension
-            ext_name = f'{self.output}/{ext}.vsix'
-            _LOGGER.debug(f'Transferring {ext_name} from remote')
+            ext_name = '%s/%s.vsix' % (self.output, ext)
+            LOGGER.debug('Transferring %s from remote' % (ext_name))
             self.tunnel.get(ext_name, ext_name)
 
             # delete the extension from the remote
-            _LOGGER.debug(f'Deleting {ext_name} from remote')
-            self.tunnel.send(f'rm -f {ext_name}')
+            LOGGER.debug('Deleting %s from remote' % (ext_name))
+            self.tunnel.send('rm -f %s' % (ext_name))
 
         # delete the remote directory
         self.tunnel.rmdir(self.output)
+
 
     def _install_extension(self, path):
         """
         Installs an individual VSIX extensions at a specified path.
         """
-        _LOGGER.info(f'Installing {os.path.basename(path)}')
-        os.system(f'{self.cmd} --install-extension {path}')
+        LOGGER.info('Installing %s' % (os.path.basename(path)))
+        os.system('%s --install-extension %s' % (self.cmd, path))
 
-    def install(self, path=None):
+
+    def install(self, extension_path=None):
         """
         Installs the extension at the specified path or all the
         extensions in the specified directory.
         """
-        # if no path was provided, assume we want to install the
+        # if no extension_path was provided, assume we want to install the
         # extensions from the output directory.
-        path = path or self._extensions_dir
+        extension_path = extension_path or self.extensions_dir
 
-        if os.path.isfile(path):
-            self._install_extension(path)
-        elif os.path.isdir(path):
-            for f in os.listdir(path):
-                self._install_extension(f'{path}/{f}')
+        if os.path.isfile(extension_path):
+            self._install_extension(extension_path)
+        elif os.path.isdir(extension_path):
+            for f in os.listdir(extension_path):
+                self._install_extension('%s/%s' % (extension_path, f))
         else:
-            _LOGGER.error(f'Path {path} is invalid.')
-            exit(1)
+            LOGGER.error('Cannot install extension(s) from the path "%s".' % (
+              extension_path))
+
 
     def update(self):
         """
@@ -237,52 +262,63 @@ class Manager():
         self.download()
         self.install(self.output)
 
-    @property
-    def output(self):
-        return self._output
 
-    @output.setter
-    def output(self, directory):
-        # validate the output directory
-        d = os.path.abspath(directory)
-        self._output = self._valid_dir(d, True)
+    def _process_output_directory(self, directory):
+        """
+        Resolves an absolute path to the specified extension output directory.
+        
+        Arguments:
+            directory {str} -- The path to the output directory.
+        
+        Returns:
+            str -- The absolute path to the output directory.
+        """
+        return self._get_valid_dir(directory, True)
 
-    @property
-    def extensions(self):
-        return self._extensions
 
-    @extensions.setter
-    def extensions(self, exts):
-        # if the user did not specify any extensions, we'll assume that
-        # they want to update all of their currently installed extensions.
-        if exts is None or exts == '*':
-            exts = os.popen('code --list-extensions').read().splitlines()
+    def _process_extensions(self, extensions):
+        """
+        Parses the extensions argument to determine which extensions should be
+        processed.
+        
+        Arguments:
+            extensions {str|list|None} -- The argued extension names to involve
+        
+        Returns:
+            list -- A list of extension names that will be processed
+        """
+        # if the user did not specify any extensions, we'll assume that they
+        # want to update all of their currently-installed extensions.
+        if extensions is None or extensions == '*':
+            LOGGER.debug('No extensions specified. Finding all extensions')
+            extensions = os.popen('code --list-extensions').read().splitlines()
 
-        # otherwise, if we were given a string of one or more extensions, 
-        # we need to first check if the string represents a directory.
+        # otherwise, if we were given a string of one or more extensions,
+        # we need to determine if we were given a path to a directory of
+        # extensions or a list of extension names.
+        elif type(extensions) is str:
+            # check if we were given a valid directory path
+            directory = self._get_valid_dir(extensions)
 
-        elif type(exts) is str:
-            # if a valid directory was provided, then get a list of all the 
+            # if a valid directory was provided, then get a list of all the
             # extensions in the directory.
-            directory = self._valid_dir(exts)
-            if directory:
-                self._extensions_dir = directory
-                exts = self._dirfiles(directory)
+            if directory is not None:
+                self.extensions_dir = directory
+                extensions = self._get_directory_vsix_files(directory)
 
-            # If a literal string of extension names was provided,
-            # convert the string to a list of extensions.
+            # If a literal string of extension names was provided, convert the 
+            # string to a list of extensions.
             else:
-                exts = re.split(';|,', exts)
+                extensions = re.split(';|,', extensions)
 
         # make sure we're dealing with a list
         try:
-            exts = list(exts)
+            extensions = list(extensions)
         except TypeError as e:
-            _LOGGER.error('Could not identify a list of extensions.')
+            LOGGER.error('Could not identify a list of extensions.')
             exit(1)
 
-        # set the instance-level extensions
-        self._extensions = exts
+        return extensions
 
 
 class CustomFormatter(configargparse.HelpFormatter):
@@ -305,7 +341,7 @@ class CustomFormatter(configargparse.HelpFormatter):
                 default = action.dest.upper()
                 args_string = self._format_args(action, default)
                 for option_string in action.option_strings:
-                    parts.append('%s' % option_string)
+                    parts.append('%s' % (option_string))
                 parts[-1] += ' %s'%args_string
             return ', '.join(parts)
 
@@ -318,7 +354,7 @@ def main():
     parser = configargparse.ArgParser(formatter_class=CustomFormatter)
     parser.add('command', nargs='?', help='The VSCode Extension Manager command to execute: [download|install|update]')
     parser.add('-c', '--config', is_config_file=True, help='config file path')
-    parser.add('-o', '--output-dir', default=f'/tmp/vsc-{int(datetime.now().timestamp())}', help='The directory where the extensions will be downloaded.')
+    parser.add('-o', '--output-dir', default='/tmp/vsc-%d' % (time() * 1000), help='The directory where the extensions will be downloaded.')
     parser.add('-e', '--extensions', default='*', help='A string, list, or directory of extensions to download/update/install')
     parser.add('-k', '--keep', default=False, action='store_true', help='If set, downloaded .vsix files will not be deleted')
     parser.add('-i', '--insiders', default=False, action='store_true', help='Install extensions to VS Code Insiders instead of VS Code')
@@ -332,7 +368,7 @@ def main():
 
     # if verbose mode was requested, update the logging level
     if options.verbose:
-        _LOGGER.setLevel(__debug__)
+        LOGGER.setLevel(__debug__)
 
     # if no actionable command was provided, just print
     # the help output, but don't execute anything else.
@@ -341,9 +377,9 @@ def main():
         return
 
     # print startup config
-    _LOGGER.debug('vsc started with the following options:')
+    LOGGER.debug('vsc started with the following options:')
     for key,value in vars(options).items():
-        _LOGGER.debug(f'  {key}: \t{value}')
+        LOGGER.debug('%12s: %s' % (key, value))
 
     # initialize an instance of the VSC Manager
     cmd = options.command

@@ -1,9 +1,11 @@
 from setuptools import setup, find_packages
 
+__version__ = '0.2-dev'
+
 setup(
-    name='vsc',
+    name='pyvsc',
     description='VS Code extension management via SSH',
-    version='0.1',
+    version=__version__,
     packages=find_packages(),
     entry_points={
         'console_scripts': [
@@ -14,5 +16,5 @@ setup(
         'configargparse',
         'paramiko'
     ],
-    python_requires='>=3.6'
+    python_requires='>=2.7'
 )
