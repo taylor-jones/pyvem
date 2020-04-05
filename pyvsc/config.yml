@@ -1,4 +1,4 @@
 # ssh tunnel
-ssh-host: 192.168.95.100
-ssh-port: 22
-ssh-user: user
+ssh-host: <your-ssh-host>
+ssh-port: <your-ssh-port>
+ssh-user: <your-ssh-user>
