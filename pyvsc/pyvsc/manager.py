@@ -433,22 +433,28 @@ def main():
     # setup logging
     logging.basicConfig(format='%(message)s', level=logging.INFO)
 
+    # specify the parser
+    parser = configargparse.ArgParser(
+        add_help=False,
+        formatter_class=CustomFormatter
+    )
+
     # specify the parser options
-    parser = configargparse.ArgParser(formatter_class=CustomFormatter)
-    parser.add('command', nargs='?', help='The VSCode Extension Manager command to execute: [download|install|update]')
-    parser.add('-c', '--config', is_config_file=True, help='config file path')
-    parser.add('-o', '--output-dir', default='/tmp/vsc-%d' % (time() * 1000), help='The directory where the extensions will be downloaded.')
-    parser.add('-e', '--extensions', default='*', help='A string, list, or directory of extensions to download/update/install')
-    parser.add('-k', '--keep', default=False, action='store_true', help='If set, downloaded .vsix files will not be deleted')
-    parser.add('-s', '--source-editor', default='', help='The editor that will be used to identify extensions')
-    parser.add('-d', '--dest-editor', default='', help='The editor where the extensions will be installed')
-    parser.add('-v', '--verbose', default=False, action='store_true', help='Display more program output')
-    parser.add('-n', '--dry-run', default=False, action='store_true', help='Preview the action(s) that would be taken without actually taking them')
-    parser.add('--insiders', default=False, action='store_true', help='Use VSCode Insiders as the source and destination editor')
-    parser.add('--codium', default=False, action='store_true', help='Use VSCodium as the source and destination editor')
-    parser.add('--ssh-host', default='localhost', help='SSH Host IP or network name')
-    parser.add('--ssh-port', default=22, help='SSH Port')
-    parser.add('--ssh-user', default=getuser(), help='SSH username')
+    parser.add('operation', nargs='?', help='The VSCode Extension Manager operation to execute: [download|install|update]')
+    parser.add_argument('--help', action="help", help="Show help message")
+    parser.add_argument('-c', '--config', is_config_file=True, help='config file path')
+    parser.add_argument('-d', '--dest-editor', default='', help='The editor where the extensions will be installed')
+    parser.add_argument('-e', '--extensions', default='*', help='A string, list, or directory of extensions to download/update/install')
+    parser.add_argument('-h', '--ssh-host', default='localhost', help='SSH Host IP or network name')
+    parser.add_argument('-k', '--keep', default=False, action='store_true', help='If set, downloaded .vsix files will not be deleted')
+    parser.add_argument('-n', '--dry-run', default=False, action='store_true', help='Preview the action(s) that would be taken without actually taking them')
+    parser.add_argument('-o', '--output-dir', default='/tmp/vsc-%d' % (time() * 1000), help='The directory where the extensions will be downloaded.')
+    parser.add_argument('-p', '--ssh-port', default=22, help='SSH Port')
+    parser.add_argument('-s', '--source-editor', default='', help='The editor that will be used to identify extensions')
+    parser.add_argument('-u', '--ssh-user', default=getuser(), help='SSH username')
+    parser.add_argument('-v', '--verbose', default=False, action='store_true', help='Display more program output')
+    parser.add_argument('--insiders', default=False, action='store_true', help='Use VSCode Insiders as the source and destination editor')
+    parser.add_argument('--codium', default=False, action='store_true', help='Use VSCodium as the source and destination editor')
 
     # parse the configuration options
     options = parser.parse_args()
@@ -461,9 +467,9 @@ def main():
             print('%12s: %s' % (key, value))
         print('')
 
-    # if no actionable command was provided, just print
+    # if no actionable operation was provided, just print
     # the help output, but don't execute anything else.
-    if not options.command:
+    if not options.operation:
         print(parser.format_help())
         sys.exit(1)
 
@@ -479,7 +485,7 @@ def main():
         sys.exit(1)
 
     # initialize an instance of the VSC Manager
-    cmd = options.command
+    operation = options.operation
     manager = Manager(
         extensions=options.extensions, 
         output_dir=options.output_dir,
@@ -489,7 +495,7 @@ def main():
         ssh_host=options.ssh_host,
         ssh_port=options.ssh_port,
         ssh_user=options.ssh_user,
-        keep=cmd=='download' or cmd=='install' or options.keep,
+        keep=operation=='download' or operation=='install' or options.keep,
         insiders=options.insiders,
         codium=options.codium,
     )
@@ -500,11 +506,11 @@ def main():
         sys.exit(0)
 
     # perform the desired operation
-    if cmd == 'download':
+    if operation == 'download':
         manager.download()
-    elif cmd == 'install':
+    elif operation == 'install':
         manager.install()
-    elif cmd == 'update':
+    elif operation == 'update':
         manager.update()
     else:
         print(parser.format_help())
