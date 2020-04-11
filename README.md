@@ -8,20 +8,13 @@
 
 CLI tool for downloading, installing, and/or updating VS Code extensions over SSH.
 
-### Download
-
-The `download` operation provides the ability to simply download `.vsix` etensions over ssh and store them in a local directory.
-
-### Install
-
-The `install` operation provides the ability to install .vsix extensions that exist locally on your file-system.
-
-The difference between the pyvsc `install` command and the built-in VSCode `--install-extension` command is that pyvsc allows for installing multiple extensions via a single command.
-
-### Update
-
-The `update` operation provides the ability to perform a `download` + `install` in a single command. This command implements the core intension of this project.
-
+* Download
+  * The `download` operation provides the ability to simply download `.vsix` etensions over ssh and store them in a local directory.
+* Install
+  * The `install` operation provides the ability to install .vsix extensions that exist locally on your file-system.
+  * The difference between the pyvsc `install` command and the built-in VSCode `--install-extension` command is that pyvsc allows for installing multiple extensions via a single command.
+* Update
+  * The `update` operation provides the ability to perform a `download` + `install` in a single command. This command implements the core intension of this project.
 
 ## Usage
 
@@ -67,7 +60,6 @@ optional arguments:
                         editor
   --codium              Use VSCodium as the source and destination editor
 ```
-
 
 ## Examples
 
