@@ -18,15 +18,18 @@ from getpass import getuser
 from pyvsc.tunnel import Tunnel
 
 
+# TODO: Figure out how to change log formatting based on the verbosity level
+
 LOGGER = logging.getLogger(__name__)
 logging.basicConfig(
-  level=logging.INFO,
-  format='%(asctime)s | %(module)s [%(levelname)s] - %(funcName)s:%(lineno)d - %(message)s'
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s]\t%(module)s::%(funcName)s:%(lineno)d | %(message)s'
 )
 
 
 class Editors:
     """
+    TODO: Better description
     The supported VSCode editor variations
     """
     code = 'code'
@@ -36,15 +39,19 @@ class Editors:
 
 class Manager():
     def __init__(self, **kwargs):
-        self.dry_run = kwargs.get('dry_run')
-        self.keep = kwargs.get('keep')
+        self.tunnel = kwargs.get('tunnel', None)
+        self.dry_run = kwargs.get('dry_run', False)
+        self.keep = kwargs.get('keep', False)
         self.extensions_dir = None
+
+        # FIXME: Be more consistent with the option validations.
+        # Some of them happen here, some happen in main().
 
         # determine which version of the editor to work with, and make
         # sure that version is installed and on the PATH
-        self.insiders = kwargs.get('insiders')
-        self.codium = kwargs.get('codium')
-        
+        self.insiders = kwargs.get('insiders', False)
+        self.codium = kwargs.get('codium', False)
+
         # if either insiders or codium was explicitely specified, use that
         # editor for both the source and destination editors. Otherwise,
         # inspect both the source and destination editors individually to
@@ -64,13 +71,6 @@ class Manager():
         # ensure the source & destination editors are installed on the system
         self._check_editors_are_installed([self.cmd_source, self.cmd_dest])
 
-        # establish the ssh tunnel connection
-        self.tunnel = Tunnel(
-            host=kwargs.get('ssh_host'),
-            port=kwargs.get('ssh_port'),
-            user=kwargs.get('ssh_user')
-        )
-
         # determine the output directory and specified extensions
         self.output = self._process_output_directory(kwargs.get('output_dir'))
         self.extensions = self._process_extensions(kwargs.get('extensions'))
@@ -88,15 +88,14 @@ class Manager():
                 if found. Otherwise, the default value.
         """
         command = command.lower()
-        
+
         if command in ['code-insiders', 'insiders', 'vscode-insiders']:
             return Editors.insiders
         elif command in ['codium', 'vscodium', 'vs-codium']:
             return Editors.codium
         elif command in ['code', 'vscode', 'vs-code']:
             return Editors.code
-        else:
-            return default
+        return default
 
 
     def _check_editors_are_installed(self, editors):
@@ -146,7 +145,7 @@ class Manager():
 
         # if we're only checking on the existence of the directory, then don't
         # try to create it and only return the dir path if it already existed.
-        if not create_if_not_exists:
+        if not create_if_not_exists or self.dry_run == True:
             return d if dir_exists else None
 
         # otherwise, try to create the directory, and return the
@@ -155,12 +154,13 @@ class Manager():
             self._output_preexisted = dir_exists
             command = 'mkdir -p %s' % (d)
             os.system(command)
-            self.tunnel.send(command)
+            self.tunnel.run(command)
             return d
         except Exception as e:
-          LOGGER.error('Could not validate directory: %s' % (d))
-          LOGGER.exception(e)
-          sys.exit(1)
+            LOGGER.error(
+                'Could not validate directory: %s' % (d), 
+                exc_info=self.verbose)
+            sys.exit(1)
 
 
     def _get_directory_vsix_files(self, directory):
@@ -189,10 +189,11 @@ class Manager():
             return '%s/linux-rpm-x64/%s' % (url_base, version)
         elif operating_system == 'Darwin':
             return '%s/darwin/%s' % (url_base, version)
-        else:
-            LOGGER.error('Sorry, pyvsc doesn\'t currently support %s' % (
-                operating_system))
-            sys.exit(1)
+
+        # Otherwise, it's an operating system that isn't currently supported
+        LOGGER.error('Sorry, pyvsc doesn\'t currently support %s' % (
+            operating_system), exc_info=self.verbose)
+        sys.exit(1)
 
 
     def _get_vscode_curl_command(self, url):
@@ -217,10 +218,10 @@ class Manager():
         name of the extension in the format of {publisher}.{package}
 
         ex: ms-python.python
-        
+
         Arguments:
             extension {str} -- the name of the extension
-        
+
         Returns:
             {str}
         """
@@ -231,7 +232,7 @@ class Manager():
               publisher, publisher, package)
 
 
-    def _cleanup_output_dir(self):
+    def cleanup_output_dir(self):
         """
         Removes downloaded extension files from the output directory, or if 
         the output directory wasn't pre-existing, removes the entire directory.
@@ -248,26 +249,23 @@ class Manager():
         LOGGER.info('Cleaning up downloaded extensions.')
 
         if self._output_preexisted == True:
-            # just remove the extension files
             for ext in self.extensions:
                 try:
                     ext_name = '%s/%s.vsix' % (self.output, ext)
                     os.system('rm -f %s' % (ext_name))
-                    LOGGER.debug('Removed extension: %s' % (ext_name))
+                    LOGGER.debug('Removed file: %s' % (ext_name))
                 except Exception as e:
-                    LOGGER.error('Failed to remove extension: %s' % (ext_name))
+                    LOGGER.error(
+                        'Failed to remove file: %s' % (ext_name),
+                        exc_info=self.verbose)
         else:
-            # remove the whole directory.
             try:
                 rmtree(self.output)
                 LOGGER.debug('Removed directory: %s' % (self.output))
             except IOError as e:
-                LOGGER.error('Failed to remove directory: %s' % (self.output))
-
-
-    def __del__(self):
-        if not self.keep:
-            self._cleanup_output_dir()
+                LOGGER.error(
+                    'Failed to remove directory: %s' % (self.output),
+                    exc_info=self.verbose)
 
 
     def download(self):
@@ -275,33 +273,36 @@ class Manager():
         Performs a "download" operation for the specified extensions.
         """
         if self.extensions == None:
-            LOGGER.error('No extensions have been specified.')
+            LOGGER.error(
+                'No extensions have been specified.', exc_info=self.verbose)
             sys.exit(1)
 
         if self.output == None:
-            LOGGER.error('No output directory has been specified.')
+            LOGGER.error(
+                'No output directory has been specified.',
+                exc_info=self.verbose)
             sys.exit(1)
 
         LOGGER.info('Downloading %d extensions to %s' % (
             len(self.extensions), self.output))
 
         # download each extension to the output directory in the ssh tunnel.
-        for ext in self.extensions:
-            url = self._get_vsix_url(ext)
-            cmd = self._get_vsix_curl_command(ext, url)
-            LOGGER.info('Downloading extension: %s' % (ext))
+        for extension in self.extensions:
+            download_url = self._get_vsix_url(extension)
+            curl_command = self._get_vsix_curl_command(extension, download_url)
+            LOGGER.info('Downloading extension: %s' % (extension))
 
-            # download the extension
-            self.tunnel.send(cmd)
+            # download the extension via the SSH tunnel
+            self.tunnel.run(curl_command)
 
-            # transfer the extension
-            ext_name = '%s/%s.vsix' % (self.output, ext)
+            # transfer the extension from the remote host to the local host
+            ext_name = '%s/%s.vsix' % (self.output, extension)
             LOGGER.debug('Transferring %s from remote' % (ext_name))
             self.tunnel.get(ext_name, ext_name)
 
-            # delete the extension from the remote
+            # delete the extension from the remote host
             LOGGER.debug('Deleting %s from remote' % (ext_name))
-            self.tunnel.send('rm -f %s' % (ext_name))
+            self.tunnel.run('rm -f %s' % (ext_name))
 
         # delete the remote directory
         self.tunnel.rmdir(self.output)
@@ -311,8 +312,14 @@ class Manager():
         """
         Installs an individual VSIX extensions at a specified path.
         """
-        LOGGER.info('Installing %s' % (os.path.basename(path)))
-        os.system('%s --install-extension %s' % (self.cmd_dest, path))
+        try:
+            extension_name = os.path.basename(path)
+            LOGGER.info('Installing %s' % (extension_name))
+            os.system('%s --install-extension %s' % (self.cmd_dest, path))
+        except Exception as e:
+            LOGGER.error(
+                'Failed to install extension: %s' % (extension_name),
+                exc_info=self.verbose)
 
 
     def install(self, extension_path=None):
@@ -331,7 +338,8 @@ class Manager():
                 self._install_extension('%s/%s' % (extension_path, f))
         else:
             LOGGER.error('Cannot install extension(s) from the path "%s".' % (
-                extension_path))
+                extension_path), exc_info=self.verbose)
+            sys.exit(1)
 
 
     def update(self):
@@ -396,11 +404,13 @@ class Manager():
         # make sure we're dealing with a list
         try:
             extensions = list(extensions)
+            return extensions
         except TypeError as e:
-            LOGGER.error('Could not identify a list of extensions.')
+            LOGGER.error(
+                'Could not identify a list of extensions.',
+                exc_info=self.verbose)
             sys.exit(1)
 
-        return extensions
 
 
 class CustomFormatter(configargparse.HelpFormatter):
@@ -430,9 +440,6 @@ class CustomFormatter(configargparse.HelpFormatter):
 
 
 def main():
-    # setup logging
-    logging.basicConfig(format='%(message)s', level=logging.INFO)
-
     # specify the parser
     parser = configargparse.ArgParser(
         add_help=False,
@@ -445,7 +452,8 @@ def main():
     parser.add_argument('-c', '--config', is_config_file=True, help='config file path')
     parser.add_argument('-d', '--dest-editor', default='', help='The editor where the extensions will be installed')
     parser.add_argument('-e', '--extensions', default='*', help='A string, list, or directory of extensions to download/update/install')
-    parser.add_argument('-h', '--ssh-host', default='localhost', help='SSH Host IP or network name')
+    parser.add_argument('-g', '--ssh-gateway', help='IP Address or hostname of the SSH gateway')
+    parser.add_argument('-h', '--ssh-host', help='IP Address or hostname of the SSH host')
     parser.add_argument('-k', '--keep', default=False, action='store_true', help='If set, downloaded .vsix files will not be deleted')
     parser.add_argument('-n', '--dry-run', default=False, action='store_true', help='Preview the action(s) that would be taken without actually taking them')
     parser.add_argument('-o', '--output-dir', default='/tmp/vsc-%d' % (time() * 1000), help='The directory where the extensions will be downloaded.')
@@ -459,30 +467,54 @@ def main():
     # parse the configuration options
     options = parser.parse_args()
 
+    # TODO: Move option validation to its own function.
+    # TODO: Remove option validations from the manager class constructor.
+
+    # some option values are dependent on the values of adjacent options.
+    # Process those cases before displaying the option output to the user or
+    # invoking a VSC Manager
+
+    # Keep downloaded files if any of the following are true:
+    # - the keep options was explicitely provided
+    # - the operation is 'download'
+    # - the operation is 'install'
+    options.keep = options.keep or options.operation in ['download', 'install']
+
     # if verbose mode was requested, update the logging level
     if options.verbose:
         LOGGER.setLevel(__debug__)
-        print('vsc invoked with the following options:')
+        opt_output = 'VSC invoked with the following options:\n'
         for key, value in vars(options).items():
-            print('%12s: %s' % (key, value))
-        print('')
+            opt_output = '%s%16s: %s\n' % (opt_output, key, value)
+        LOGGER.debug(opt_output)
 
     # if no actionable operation was provided, just print
     # the help output, but don't execute anything else.
     if not options.operation:
+        LOGGER.error('You need to specify an operation to perform!')
         print(parser.format_help())
         sys.exit(1)
 
     # validate the options
     if options.insiders and options.codium:
         LOGGER.error(
-            'You\'ve specified to use both VSCode Insiders and VS Codium. '
-            'Only one of these options is allowed at a time, since using '
-            'either of them overrides both the source and destination '
-            'editors. If you need to specify different code editors for '
-            'the source and destination, you can do so using:\n'
-            '-s, --source\t\t-d, --dest')
+            'You\'ve specified to use both VSCode Insiders and VS Codium.\n'
+            'Only one of these options is allowed at a time, since using\n'
+            'either of them overrides both the source and destination editors\n'
+            'If you need to specify different code editors for the source and\n'
+            'destination, you can do so using:\n\n'
+            '-s, --source\n-d, --dest\n')
         sys.exit(1)
+
+
+    # Establish the tunnel connection
+    tunnel = Tunnel(
+        host=options.ssh_host,
+        port=options.ssh_port,
+        user=options.ssh_user,
+        gateway=options.ssh_gateway,
+        verbose=options.verbose,
+    )
 
     # initialize an instance of the VSC Manager
     operation = options.operation
@@ -493,17 +525,23 @@ def main():
         dest_editor=options.dest_editor,
         dry_run=options.dry_run,
         ssh_host=options.ssh_host,
+        ssh_gateway=options.ssh_gateway,
         ssh_port=options.ssh_port,
         ssh_user=options.ssh_user,
-        keep=operation=='download' or operation=='install' or options.keep,
+        tunnel=tunnel,
+        keep=options.keep,
         insiders=options.insiders,
         codium=options.codium,
     )
 
+    # TODO: Implement more thorough dry-run functionality.
     # if it's just a dry-run, don't perform the action
     if options.dry_run:
-        LOGGER.info('\nDry-run only. Exiting..')
+        LOGGER.info('Dry-run only. Exiting..')
         sys.exit(0)
+
+    # TODO: Implement a better way of invoking the manager operation.
+    # NOTE: See if there's a way to call a method by name.
 
     # perform the desired operation
     if operation == 'download':
@@ -514,7 +552,12 @@ def main():
         manager.update()
     else:
         print(parser.format_help())
+        sys.exit(1)
 
+
+    # Cleanup, if necessary
+    if not options.keep:
+        manager.cleanup_output_dir()
 
 if __name__ == "__main__":
     main()
