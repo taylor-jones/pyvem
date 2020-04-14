@@ -1,10 +1,10 @@
 from setuptools import setup, find_packages
 
-__version__ = '0.2-dev'
+__version__ = '0.3-dev'
 
 setup(
     name='pyvsc',
-    description='VS Code extension management via SSH',
+    description='VS Code extension management over SSH',
     version=__version__,
     packages=find_packages(),
     entry_points={
@@ -14,7 +14,8 @@ setup(
     },
     install_requires=[
         'configargparse',
-        'paramiko'
+        'fabric',
+        'paramiko',
     ],
     python_requires='>=2.7'
 )
