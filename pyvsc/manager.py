@@ -11,6 +11,7 @@ import re
 import platform
 import logging
 import configargparse
+import coloredlogs
 
 from time import time
 from shutil import rmtree
@@ -21,9 +22,14 @@ from pyvsc.tunnel import Tunnel
 # TODO: Figure out how to change log formatting based on the verbosity level
 
 LOGGER = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s]\t%(module)s::%(funcName)s:%(lineno)d | %(message)s'
+# logging.basicConfig(
+#     level=logging.INFO,
+#     format='%(asctime)s [%(levelname)s]\t%(module)s::%(funcName)s:%(lineno)d | %(message)s'
+# )
+coloredlogs.install(
+    level='DEBUG',
+    logger=LOGGER,
+    fmt='%(asctime)s,%(msecs)03d %(name)s %(levelname)s %(message)s'
 )
 
 

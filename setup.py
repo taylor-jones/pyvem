@@ -14,6 +14,7 @@ setup(
     },
     install_requires=[
         'configargparse',
+        'coloredlogs',
         'fabric',
         'paramiko',
     ],
