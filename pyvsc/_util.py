@@ -1,5 +1,7 @@
 from __future__ import print_function
-import os
+from os import path
+
+import socket
 import logging
 
 _LOGGER = logging.getLogger(__name__)
@@ -18,13 +20,60 @@ class AttributeDict(dict):
     __delattr__ = dict.__delitem__
 
 
-def dir_exists(d):
+def get_public_attributes(obj):
+    """
+    Returns a dict containing only the non-underscored attributes from
+    an object
+    
+    Arguments:
+        obj {dict} -- A dict
+    """
+    attributes = {}
+    for k, v in obj.__dict__.items():
+        if not k.startswith('_'):
+            attributes[k] = v
+    return attributes
+
+
+def expanded_path(p):
+    """
+    Expands a path to resolve variables, home directory, and relative paths
+    and returns an absolute path.
+    
+    Arguments:
+        p {str} -- A file-system path
+    
+    Returns:
+        str -- An expanded file-system path, regardless of whether or not the
+            path actually exists.
+    """
     try:
-        d = os.path.expanduser(d)
-        d = os.path.abspath(d)
-        return os.path.isdir(d)
-    except OSError as e:
+        return path.abspath(path.expandvars(path.expanduser(p)))
+    except Exception as e:
+        _LOGGER.error(e)
+
+
+def has_internet_connection():
+    try:
+        host = socket.gethostbyname('1.1.1.1')
+        s = socket.create_connection((host, 80), 2)
+        s.close()
+        return True
+    except OSError:
         return False
     except Exception as e:
-        _LOGGER.warning(e)
+        _LOGGER.error(e)
 
+
+def truthy_list(the_list):
+    """
+    Removes "falsy" elements from a list, leaving only the elements that
+    evaluate to True
+    
+    Arguments:
+        the_list {list} -- The list to filter
+    
+    Returns:
+        list -- The filtered list
+    """
+    return list(filter(None, the_list))

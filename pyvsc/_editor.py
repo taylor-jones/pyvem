@@ -1,27 +1,24 @@
 from __future__ import absolute_import
-from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
 import os
+import re
 import logging
 import subprocess
 import requests
 
-from sys import version_info
-from pyvsc._util import AttributeDict
+from distutils.spawn import find_executable
+from pyvsc._util import AttributeDict, expanded_path, truthy_list
+from pyvsc._compat import is_py3, popen, split
 from pyvsc._machine import get_distribution_query, get_distribution_extension
 
 
-if version_info.major > 2:
-    xrange = range
-
-
 _ENCODING = 'utf-8'
+_EXTENSION_ATTRIBUTES_RE = re.compile('^(?P<id>.*?^(?P<publisher>.*?)\.(?P<package>.*))\@(?P<version>.*)')
 _PLATFORM_QUERY = get_distribution_query()
+
 _LOGGER = logging.getLogger(__name__)
-
-
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s [%(levelname)s]\t%(module)s::%(funcName)s:%(lineno)d | %(message)s'
@@ -36,7 +33,7 @@ class SupportedEditor(AttributeDict):
         'command',
         'remote_alias',
         'api_root_url',
-        'local_alias',
+        'home_dirname',
     )
 
     def __init__(self, **kwargs):
@@ -45,18 +42,38 @@ class SupportedEditor(AttributeDict):
             setattr(self, k, v)
 
 
-    def get_extensions(self, show_versions=False):
+    def get_extensions(self, force_recheck=False):
+        """
+        Builds a list of extensions for the current code editor, parsing each
+        list item into a dict having the following format:
+        {
+            'id': <str>,
+            'publisher': <str>,
+            'package': <str>,
+            'version': <str>
+        }
+        
+        Keyword Arguments:
+            force_recheck {bool} -- If True, any previously-build extensions
+            list will be ignored and a new one will be built (default: {False})
+        
+        Returns:
+            list -- A list of extension dict items
+        """
         if not self.installed:
             return []
+        elif self._extensions is not None and not force_recheck:
+            return self._extensions
 
-        output = os.popen('%s --list-extensions %s' % (
-            self.command,
-            '--show-versions' if show_versions else ''
-        )).read().splitlines()
+        args = [self.command, '--list-extensions', '--show-versions']
+        stdout, _ = popen(args)
+        extensions = [
+            _EXTENSION_ATTRIBUTES_RE.match(i).groupdict() 
+            for i in stdout.splitlines()
+        ]
 
-        if show_versions:
-            return [x.split('@') for x in output]
-        return output
+        self._extensions = extensions
+        return self._extensions
 
 
     @property
@@ -70,7 +87,6 @@ class SupportedEditor(AttributeDict):
             query = os.path.join(_PLATFORM_QUERY, self.remote_alias, 'latest')
             self._api_url = os.path.join(self.api_root_url, query)
         return self._api_url
-
 
     @property
     def download_url(self):
@@ -88,62 +104,56 @@ class SupportedEditor(AttributeDict):
             # get the url key from the json result
             return api_json['url']
 
-
     @property
     def extensions_dir(self):
         if self._extensions_dir is None:
-            self._extensions_dir = '$HOME/.%s/extensions' % self.local_alias
+            self._extensions_dir = expanded_path(
+                '$HOME/%s/extensions' % self.home_dirname)
         return self._extensions_dir
-
 
     @property
     def installed(self):
         if self._installed is None:
-            try:
-                subprocess.check_call(
-                    ['command', '-v', self.command], stdout=subprocess.PIPE)
-                self._installed = True
-            except subprocess.CalledProcessError as e:
-                self._installed = False
+            self._installed = find_executable(self.command) is not None
         return self._installed
-
 
     @property
     def can_update(self):
-        if self._can_update is None:
-            if not self.installed:
-                self._can_update = True
-                return self._can_update
+        if self._can_update is not None:
+            return self._can_update
+        elif not self.installed:
+            self._can_update = True
+            return self._can_update
 
-            try:
-                # check the installed version
-                output = subprocess.check_output([
-                    self.command, '--version'
-                ], shell=False).splitlines()
+        try:
+            # check the installed version
+            output = subprocess.check_output([
+                self.command, '--version'
+            ], shell=False).splitlines()
 
-                local_name = output[0].decode(_ENCODING)
-                local_version = output[1].decode(_ENCODING)
-                
-                # _LOGGER.debug('local_name: %s' % (local_name))
-                # _LOGGER.debug('local_version: %s' % (local_version))
+            local_name = output[0].decode(_ENCODING)
+            local_version = output[1].decode(_ENCODING)
+            
+            # _LOGGER.debug('local_name: %s' % (local_name))
+            # _LOGGER.debug('local_version: %s' % (local_version))
 
-                # check the latest remote version
-                self._api_json = requests.get(self.api_url).json()
-                remote_name = self._api_json['name']
-                remote_version = self._api_json['version']
+            # check the latest remote version
+            self._api_json = requests.get(self.api_url).json()
+            remote_name = self._api_json['name']
+            remote_version = self._api_json['version']
 
-                # _LOGGER.debug('remote_name: %s' % (remote_name))
-                # _LOGGER.debug('remote_version: %s' % (remote_version))
+            # _LOGGER.debug('remote_name: %s' % (remote_name))
+            # _LOGGER.debug('remote_version: %s' % (remote_version))
 
-                self._can_update = (
-                    local_name != remote_name 
-                    or local_version != remote_version)
+            self._can_update = (
+                local_name != remote_name 
+                or local_version != remote_version)
 
-            except Exception as e:
-                _LOGGER.debug(e)
-                self._can_update = False
-            finally:
-                return self._can_update
+        except Exception as e:
+            _LOGGER.debug(e)
+            self._can_update = False
+        finally:
+            return self._can_update
 
 
 #
@@ -153,30 +163,32 @@ class SupportedEditor(AttributeDict):
 Editors = AttributeDict({
     'code': SupportedEditor(
         command='code',
-        local_alias='vscode',
+        home_dirname='.vscode',
         remote_alias='stable',
         api_root_url='https://update.code.visualstudio.com/api/update',
     ),
     'insiders': SupportedEditor(
         command='code-insiders',
-        local_alias='vscode-insiders',
+        home_dirname='.vscode-insiders',
         remote_alias='insider',
         api_root_url='https://update.code.visualstudio.com/api/update',
     ),
     'exploration': SupportedEditor(
         command='code-exploration',
-        local_alias='vscode-exploration',
+        home_dirname='.vscode-exploration',
         remote_alias='exploration',
         api_root_url='https://update.code.visualstudio.com/api/update',
     ),
     'codium': SupportedEditor(
         command='codium',
-        local_alias='vscode-oss',
+        home_dirname='.vscode-oss',
         remote_alias='codium',
         api_root_url='https://api.github.com/repos/VSCodium/vscodium/releases/latest',
     )
 })
 
 
-# print(Editors.codium.download_url)
-# print(Editors.code.download_url)
+
+
+from beeprint import pp
+pp(Editors.insiders.get_extensions())
