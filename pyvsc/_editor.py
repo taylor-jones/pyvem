@@ -68,7 +68,7 @@ class SupportedEditor(AttributeDict):
         args = [self.command, '--list-extensions', '--show-versions']
         stdout, _ = popen(args)
         extensions = [
-            _EXTENSION_ATTRIBUTES_RE.match(i).groupdict() 
+            _EXTENSION_ATTRIBUTES_RE.match(i).groupdict()
             for i in stdout.splitlines()
         ]
 
@@ -186,9 +186,3 @@ Editors = AttributeDict({
         api_root_url='https://api.github.com/repos/VSCodium/vscodium/releases/latest',
     )
 })
-
-
-
-
-from beeprint import pp
-pp(Editors.insiders.get_extensions())

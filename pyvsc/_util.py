@@ -1,7 +1,3 @@
-from __future__ import print_function
-from os import path
-
-import socket
 import logging
 
 _LOGGER = logging.getLogger(__name__)
@@ -47,6 +43,7 @@ def expanded_path(p):
         str -- An expanded file-system path, regardless of whether or not the
             path actually exists.
     """
+    from os import path
     try:
         return path.abspath(path.expandvars(path.expanduser(p)))
     except Exception as e:
@@ -54,6 +51,13 @@ def expanded_path(p):
 
 
 def has_internet_connection():
+    """
+    Checks if the system currently has a functioning internet connection
+
+    Returns:
+        bool
+    """
+    import socket
     try:
         host = socket.gethostbyname('1.1.1.1')
         s = socket.create_connection((host, 80), 2)
