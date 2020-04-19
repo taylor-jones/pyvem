@@ -4,7 +4,7 @@ from getpass import getpass
 import logging
 
 
-LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 class Tunnel:
     def __init__(self, **kwargs):
@@ -15,7 +15,7 @@ class Tunnel:
         gateway = kwargs.get('gateway')
 
         if verbose:
-            LOGGER.setLevel(__debug__)
+            _LOGGER.setLevel(__debug__)
 
         # Establish the ssh & sftp connections
         self.ssh = self.get_ssh_connection(host, port, user, gateway)
@@ -36,10 +36,10 @@ class Tunnel:
         try:
             sftp_client = SFTPClient.from_transport(
                 ssh_connection.transport)
-            LOGGER.debug('SFTP Client successfully established.')
+            _LOGGER.debug('SFTP Client successfully established.')
             return sftp_client
         except Exception as e:
-            LOGGER.error(e, exc_info=self.verbose)
+            _LOGGER.error(e, exc_info=self.verbose)
 
 
     def get_ssh_connection(self, host, port, user, gateway):
@@ -72,7 +72,7 @@ class Tunnel:
                 connect_kwargs={'password': password}
             ) if gateway is not None else None
         except Exception as e:
-            LOGGER.error(
+            _LOGGER.error(
                 'Failed to connect to gateway: %s' % (gateway),
                 exc_info=self.verbose)
 
@@ -88,11 +88,11 @@ class Tunnel:
 
             # open the ssh connection
             ssh_client.open()
-            LOGGER.debug('SSH Client successfully established.')
+            _LOGGER.debug('SSH Client successfully established.')
             return ssh_client
 
         except Exception as e:
-            LOGGER.error(
+            _LOGGER.error(
                 'Failed to connect to host: %s' % (host),
                 exc_info=self.verbose)
 
@@ -148,9 +148,9 @@ class Tunnel:
         try:
             self.ssh.close()
         except Exception as e:
-            LOGGER.warning('No ssh tunnel exists.')
+            _LOGGER.warning('No ssh tunnel exists.')
 
         try:
             self.sftp.close()
         except Exception as e:
-            LOGGER.warning('No ftp connection exists.')
+            _LOGGER.warning('No ftp connection exists.')

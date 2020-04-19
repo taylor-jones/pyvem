@@ -131,23 +131,17 @@ class SupportedEditor(AttributeDict):
                 self.command, '--version'
             ], shell=False).splitlines()
 
-            local_name = output[0].decode(_ENCODING)
-            local_version = output[1].decode(_ENCODING)
-            
-            # _LOGGER.debug('local_name: %s' % (local_name))
-            # _LOGGER.debug('local_version: %s' % (local_version))
+            self.version = output[0].decode(_ENCODING)
+            self.hash = output[1].decode(_ENCODING)
 
             # check the latest remote version
             self._api_json = requests.get(self.api_url).json()
-            remote_name = self._api_json['name']
-            remote_version = self._api_json['version']
-
-            # _LOGGER.debug('remote_name: %s' % (remote_name))
-            # _LOGGER.debug('remote_version: %s' % (remote_version))
+            remote_version = self._api_json['name']
+            remote_hash = self._api_json['version']
 
             self._can_update = (
-                local_name != remote_name 
-                or local_version != remote_version)
+                self.version != remote_version 
+                or self.hash != remote_hash)
 
         except Exception as e:
             _LOGGER.debug(e)

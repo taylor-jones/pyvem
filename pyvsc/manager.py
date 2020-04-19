@@ -16,7 +16,7 @@ import coloredlogs
 from time import time
 from shutil import rmtree
 from getpass import getuser
-from pyvsc.tunnel import Tunnel
+from pyvsc._tunnel import Tunnel
 
 
 # TODO: Figure out how to change log formatting based on the verbosity level
@@ -241,6 +241,8 @@ class ExtensionManager():
             '/Microsoft.VisualStudio.Services.VSIXPackage' % (
               publisher, publisher, package)
 
+    # https://twxs.gallerycdn.vsassets.io/extensions/twxs/cmake/0.0.17/1488841920286/Microsoft.VisualStudio.Services.VSIXPackage
+    # https://twxs.gallery.vsassets.io/_apis/public/gallery/publisher/twxs/extension/cmake/latest/assetbyname/Microsoft.VisualStudio.Services.VSIXPackage
 
     def cleanup_output_dir(self):
         """
