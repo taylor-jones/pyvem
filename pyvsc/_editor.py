@@ -11,12 +11,16 @@ import requests
 from distutils.spawn import find_executable
 from pyvsc._util import AttributeDict, expanded_path, truthy_list
 from pyvsc._compat import is_py3, popen, split
-from pyvsc._machine import get_distribution_query, get_distribution_extension
+from pyvsc._machine import Machine
 
 
+_MACHINE = Machine()
 _ENCODING = 'utf-8'
-_EXTENSION_ATTRIBUTES_RE = re.compile('^(?P<id>.*?^(?P<publisher>.*?)\.(?P<package>.*))\@(?P<version>.*)')
-_PLATFORM_QUERY = get_distribution_query()
+_EXTENSION_ATTRIBUTES_RE = re.compile(
+    '^(?P<unique_id>.*?^(?P<publisher>.*?)\.(?P<package>.*))\@(?P<version>.*)')
+
+_GITHUB_EDITOR_UPDATE_ROOT_URL = 'https://api.github.com'
+_MARKETPLACE_EDITOR_UPDATE_ROOT_URL = 'https://update.code.visualstudio.com/api/update'
 
 _LOGGER = logging.getLogger(__name__)
 logging.basicConfig(
@@ -29,17 +33,17 @@ class SupportedEditor(AttributeDict):
     """
     Defines the attributes of a supported code editor
     """
-    __allowed = (
-        'command',
-        'remote_alias',
-        'api_root_url',
-        'home_dirname',
-    )
-
-    def __init__(self, **kwargs):
-        for k, v in kwargs.items():
-            assert(k in self.__class__.__allowed)
-            setattr(self, k, v)
+    def __init__(
+        self,
+        command,
+        remote_alias,
+        home_dirname,
+        api_root_url=_MARKETPLACE_EDITOR_UPDATE_ROOT_URL
+    ):
+        self.command = command
+        self.remote_alias = remote_alias
+        self.home_dirname = home_dirname
+        self.api_root_url = api_root_url
 
 
     def get_extensions(self, force_recheck=False):
@@ -47,7 +51,7 @@ class SupportedEditor(AttributeDict):
         Builds a list of extensions for the current code editor, parsing each
         list item into a dict having the following format:
         {
-            'id': <str>,
+            'unique_id': <str>,
             'publisher': <str>,
             'package': <str>,
             'version': <str>
@@ -81,25 +85,25 @@ class SupportedEditor(AttributeDict):
         if self._api_url is not None:
             return self._api_url
 
-        if self.api_root_url.startswith('https://api.github.com/'):
+        if self.api_root_url.startswith(_GITHUB_EDITOR_UPDATE_ROOT_URL):
             self._api_url = self.api_root_url
         else:
-            query = os.path.join(_PLATFORM_QUERY, self.remote_alias, 'latest')
-            self._api_url = os.path.join(self.api_root_url, query)
+            path = '/%s/%s/latest' % (_MACHINE.distro_query, self.remote_alias)
+            self._api_url = '%s%s' % (self.api_root_url, path)
         return self._api_url
 
     @property
     def download_url(self):
         api_json = self._api_json or requests.get(self.api_url).json()
 
-        if self.api_url.startswith('https://api.github.com/'):
+        if self.api_url.startswith(_GITHUB_EDITOR_UPDATE_ROOT_URL):
             # if this editor uses the github api, we need to determine which
             # asset we're looking for and find the browser download url
-            target_ext = get_distribution_extension()
+            target_ext = _MACHINE.distro_extension
             assets = api_json['assets']
             asset = next(x for x in assets if x['name'].endswith(target_ext))
             return asset['browser_download_url']
-        elif self.api_root_url == 'https://update.code.visualstudio.com/api/update':
+        elif self.api_root_url == _MARKETPLACE_EDITOR_UPDATE_ROOT_URL:
             # if this editor uses the the visualstudio update api, then just
             # get the url key from the json result
             return api_json['url']
@@ -159,19 +163,16 @@ Editors = AttributeDict({
         command='code',
         home_dirname='.vscode',
         remote_alias='stable',
-        api_root_url='https://update.code.visualstudio.com/api/update',
     ),
     'insiders': SupportedEditor(
         command='code-insiders',
         home_dirname='.vscode-insiders',
         remote_alias='insider',
-        api_root_url='https://update.code.visualstudio.com/api/update',
     ),
     'exploration': SupportedEditor(
         command='code-exploration',
         home_dirname='.vscode-exploration',
         remote_alias='exploration',
-        api_root_url='https://update.code.visualstudio.com/api/update',
     ),
     'codium': SupportedEditor(
         command='codium',
@@ -180,3 +181,13 @@ Editors = AttributeDict({
         api_root_url='https://api.github.com/repos/VSCodium/vscodium/releases/latest',
     )
 })
+
+
+
+#######################################################################
+# Test Commands -- 
+#######################################################################
+
+# from beeprint import pp
+# pp(Editors.code.download_url, max_depth=8, indent=2, width=200, sort_keys=True)
+# pp(Editors.codium.download_url, max_depth=8, indent=2, width=200, sort_keys=True)

@@ -69,35 +69,45 @@ def has_internet_connection():
         _LOGGER.error(e)
 
 
-def truthy_list(array):
+def truthy_list(the_list):
     """
     Removes "falsy" elements from a list, leaving only the elements that
     evaluate to True
-    
+
     Arguments:
-        array {list} -- The list to filter
-    
+        the_list {list} -- The list to filter
+
     Returns:
         list -- The filtered list
     """
-    return list(filter(None, array))
+    return list(filter(None, the_list))
 
 
-def key_match(array, key, value):
+def dict_from_list_key(the_list, key, value, default_response=None):
     """
     Returns the first item from a list of dicts where a specified key in the
     dict matches a specified value
-    
+
     Arguments:
-        array {list} -- The list to search
+        the_list {list} -- The list to search
         key {str} -- The name of the key to check the value of
         value {str} -- The matching key value to search for
-    
+
+    Keyword Arguments:
+        default_response {any} -- The prefered response to return if no match
+            is found with the given arguments
+
     Returns:
         dict -- The matching dict or None if not found
     """
+    the_list_type = type(the_list)
+    if the_list_type is not list:
+        raise AttributeError(
+            'Expected a list, got a %s' % the_list_type.__name__)
+
     try:
-        return next(x for x in array if x.get(key) == value)
-    except Exception:
-        return None
+        return next(x for x in the_list if x.get(key) == value)
+    except Exception as e:
+        print(e)
+        return default_response
 

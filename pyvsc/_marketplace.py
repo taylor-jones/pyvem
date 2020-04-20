@@ -27,6 +27,19 @@ class Marketplace():
 
 
     def _post(self, endpoint, data={}, headers={}):
+        """
+        Performs a post request to the marketplace gallery.
+        
+        Arguments:
+            endpoint {str} -- The uri endpoint to append to the base url
+        
+        Keyword Arguments:
+            data {dict} -- The data to pass in the post request
+            headers {dict} -- The headers to pass in the post request
+        
+        Returns:
+            Requests.response
+        """
         url = '%s/_apis/public%s' % (self.base_url, endpoint)
         return requests.post(url, data=json.dumps(data), headers=headers)
 
@@ -73,7 +86,21 @@ class Marketplace():
         return parsed['results'][0]['extensions']
 
 
-    def get_extension(self, extensions_name, flags=[]):
+    def get_extension(self, unique_id, flags=[]):
+        """
+        Get the marketplace response for a specific extension
+        
+        Arguments:
+            unique_id {str} -- The extension id in the format of
+            
+        
+        Keyword Arguments:
+            flags {list} -- An optional list of ExtensionQueryFlags
+        
+        Returns:
+            dict or None -- A dict from the JSON response of the HTTP request
+                or None if no matching extension was found.
+        """
         criteria = [
             {
                 'filterType': ExtensionQueryFilterType.InstallationTarget,
@@ -81,7 +108,7 @@ class Marketplace():
             },
             {
                 'filterType': ExtensionQueryFilterType.Name,
-                'value': extensions_name
+                'value': unique_id
             },
         ]
 
@@ -91,6 +118,19 @@ class Marketplace():
 
 
     def search_extensions(self, search_text, page_size=25, flags=[]):
+        """
+        Gets a list of search results from the VSCode Marketplace.
+        
+        Arguments:
+            search_text {str} -- The text to use for searching
+        
+        Keyword Arguments:
+            page_size {int} -- The number of results to return (default: {25})
+            flags {list} -- A list of ExtensionQueryFlags
+        
+        Returns:
+            list -- A list of extension result dicts
+        """
         criteria = [
             {
                 'filterType': ExtensionQueryFilterType.InstallationTarget,
@@ -112,10 +152,25 @@ class Marketplace():
 
 
 
+#######################################################################
+# Test Commands
+#######################################################################
+
+from pyvsc._extensions import Extension, MarketplaceExtension, GithubExtension
+from beeprint import pp
 
 m = Marketplace()
-e = m.get_extension('twxs.cmake')
-# e = m.search_extensions('cpp')
 
-from beeprint import pp
-pp(e, max_depth=8, indent=2, width=200, sort_keys=True)
+e = m.get_extension('twxs.cmake')
+
+# e1 = m.get_extension('ms-azuretools.vscode-docker')        # has extensionDependencies
+# e2 = m.get_extension('donjayamanne.python-extension-pack') # has extensionPath
+# e3 = m.get_extension('ms-vscode.cpptools')
+
+# e4 = m.search_extensions('cpptools', page_size=3)
+
+# pp(e, max_depth=8, indent=2, width=200, sort_keys=True)
+
+ext = MarketplaceExtension(e)
+pp(ext, max_depth=8, indent=2, width=200, sort_keys=True)
+
