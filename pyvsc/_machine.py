@@ -1,5 +1,5 @@
 """
-Notes on supported platforms: 
+Notes on supported platforms:
 
 * VSCode only offically supports the following platforms:
     - macOS 10.10+
@@ -28,16 +28,14 @@ class Machine():
         self.processor = processor()
         self.arch_size = self._arch_size()
         self.package_manager = self._package_manager()
-        self.distro_extension = self._distro_extension()
-        self.distro_query = self._distro_query()
 
     def _arch_size(self):
         from sys import maxsize
         return 64 if maxsize > 2**32 else 32
 
-
     def _package_manager(self):
         from os import path, popen
+
         if self.os != 'linux':
             return None
 
@@ -46,62 +44,14 @@ class Machine():
             shell=True
         ).rstrip()
 
-        return path.basename(package_manager_path)
-
-
-    def _distro_extension(self):
-        # mac
-        if self.os == 'darwin':
-            return 'dmg'
-
-        # linux
-        if self.os == 'linux':
-            pm = self.package_manager
-
-            if pm == 'rpm':
-                return 'rpm'
-            elif pm in ['dpkg', 'apt-get']:
-                return 'deb'
-            else:
-                return 'AppImage'
-
-        # windows
-        if self.os == 'windows':
-            return 'exe'
-
-
-    def _distro_query(self):
-        """
-        Determine the VSCode distribution endpoint based on the platform that
-        can be determined from the current system.
-
-        Raises:
-            OSError: If an unsupported platform is identified
-
-        Returns:
-            str -- Query endpoint that can be used to get VSCode editor data.
-        """
-        # mac
-        if self.os == 'darwin':
-            return self.os
-
-        # linux
-        if self.os == 'linux':
-            pm = self.package_manager
-            if pm == 'rpm':
-                return 'linux-rpm-x64'
-            elif pm in ['dpkg', 'apt-get']:
-                return 'linux-deb-x64'
-            else:
-                return 'linux-x64'
-
-        # not supported
-        raise OSError('%s is not supported at this time.' % (self.os))
+        return path.basename(package_manager_path).lower()
 
 
 #
 # Machine Helper Functions
 #
+
+_MACHINE = Machine()
 
 def platform_query(
     windows='windows',
@@ -123,11 +73,15 @@ def platform_query(
     on the attributes of the current system as determined by the Machine class.
 
     In other words, a caller of this function may specify which values to
-    return based off of the current machine's attributes. Values that are left
-    as 'None' will instead inherit the value of the nearest ancestor platform
-    which has a non-truthy value specification.
+    return based off of the current machine's attributes. Values that are left 
+    as None will instead inherit the value of the nearest ancestor platform 
+    which has a truthy value specification. 
+
+    NOTE: If no truthy value is able to be determined based on the provided
+    arguments and current system attributes, an OSError exception israised.
 
     Here are some examples:
+
     * EX 1: Caller wants to return the value 'linux' if the current system is
       running linux, but more specifically wanted to return 'linux-32' if the
       system has a 32-bit architecture:
@@ -148,11 +102,16 @@ def platform_query(
     * EX 3: Caller wants to return 'osx' if the current platform is darwin.
       >>> platform_query(darwin='osx')
 
-    * EX 4: Caller wants to return the value 'linux-deb' if the current 
-        platform is Debian-based, 'linux-rpm' if the current platform is RPM-
-        based, and 'AppImage' if the current platform is any other Linux-based
-        distro:
+    * EX 4: Caller wants to return the value 'linux-deb' if the current
+      platform is Debian-based, 'linux-rpm' if RPM-based, and 'AppImage' if the
+      current platform is any other Linux-based distro:
       >>> platform_query(linux='AppImage', rpm='linux-rpm', deb='linux-deb')
+
+    * EX 5: Caller wants to return the value 'linux' if the current platform 
+      is Linux, 'darwin' if the current platform is mac OS, and raise an
+      exception if the current platform is any version of Windows.
+      >>> platform_query(linux='linux', darwin='darwin', windows=None)
+
 
     Keyword Arguments:
         windows {str} -- Return value for systems running Windows
@@ -189,32 +148,39 @@ def platform_query(
     Returns:
         str -- The specified string (as provided in the function arguments)
             based on the determined system attributes.
+
+    Raises:
+        OSError -- If no match can be determined from the provided arguments
+            and system attributes.
     """
-    machine = Machine()
-    m_os = machine.os
-    m_arch = machine.arch_size
-    m_pkg = machine.package_manager
-    
-    if m_os == 'darwin':
-        return darwin
-    elif m_os == 'windows':
-        if m_arch == 32:
-            return next(win32, windows)
+    machine_os = _MACHINE.os
+    machine_arch = _MACHINE.arch_size
+    machine_pkg_manager = _MACHINE.package_manager
+
+    if machine_os == 'darwin':
+        result = darwin
+    elif machine_os == 'windows':
+        if machine_arch == 32:
+            result = next(win32, windows)
         else:
-            return next(win64, windows)
-    elif m_os == 'linux':
-        if m_pkg == 'rpm':
-            if m_arch == 32:
-                return next(rpm32, rpm, linux32, linux)
+            result = next(win64, windows)
+    elif machine_os == 'linux':
+        if machine_pkg_manager == 'rpm':
+            if machine_arch == 32:
+                result = next(rpm32, rpm, linux32, linux)
             else:
-                return next(rpm64, rpm, linux64, linux)
-        elif m_pkg in ['dpkg', 'apt-get']:
-            if m_arch == 32:
-                return next(deb32, deb, linux32, linux)
+                result = next(rpm64, rpm, linux64, linux)
+        elif machine_pkg_manager in ['dpkg', 'apt-get']:
+            if machine_arch == 32:
+                result = next(deb32, deb, linux32, linux)
             else:
-                return next(deb64, deb, linux64, linux)
+                result = next(deb64, deb, linux64, linux)
         else:
-            if m_arch == 32:
-                return next(linux32, linux)
+            if machine_arch == 32:
+                result = next(linux32, linux)
             else:
-                return next(linux64, linux)
+                result = next(linux64, linux)
+
+    if not result:
+        raise OSError('The current platform is not supported')
+    return result

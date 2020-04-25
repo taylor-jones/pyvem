@@ -11,16 +11,33 @@ import requests
 from distutils.spawn import find_executable
 from pyvsc._util import AttributeDict, expanded_path, truthy_list
 from pyvsc._compat import is_py3, popen, split
-from pyvsc._machine import Machine
+from pyvsc._machine import platform_query
 
 
-_MACHINE = Machine()
 _ENCODING = 'utf-8'
 _EXTENSION_ATTRIBUTES_RE = re.compile(
     '^(?P<unique_id>.*?^(?P<publisher>.*?)\.(?P<package>.*))\@(?P<version>.*)')
 
 _GITHUB_EDITOR_UPDATE_ROOT_URL = 'https://api.github.com'
 _MARKETPLACE_EDITOR_UPDATE_ROOT_URL = 'https://update.code.visualstudio.com/api/update'
+
+# These represent the query patterns for the different vscode editors based
+# on the system platform and architecture.
+_MARKETPLACE_EDITOR_DISTRO_PATTERN = platform_query(
+    windows='win32-x64',
+    win32='win32',
+    darwin='darwin',
+    linux='linux-x64',
+    linux32='linux-ia32',
+    rpm='linux-rpm-64',
+    rpm32='linux-rpm-ia32',
+    deb='linux-deb-x64',
+    deb32='linux-deb-ia32'
+)
+
+#
+# Setup Logging
+#
 
 _LOGGER = logging.getLogger(__name__)
 logging.basicConfig(
@@ -38,12 +55,14 @@ class SupportedEditor(AttributeDict):
         command,
         remote_alias,
         home_dirname,
-        api_root_url=_MARKETPLACE_EDITOR_UPDATE_ROOT_URL
+        api_root_url=_MARKETPLACE_EDITOR_UPDATE_ROOT_URL,
+        github_ext_pattern=None,
     ):
         self.command = command
         self.remote_alias = remote_alias
         self.home_dirname = home_dirname
         self.api_root_url = api_root_url
+        self.github_ext_pattern = github_ext_pattern
 
 
     def get_extensions(self, force_recheck=False):
@@ -56,13 +75,14 @@ class SupportedEditor(AttributeDict):
             'package': <str>,
             'version': <str>
         }
-        
+
         Keyword Arguments:
             force_recheck {bool} -- If True, any previously-build extensions
             list will be ignored and a new one will be built (default: {False})
-        
+
         Returns:
-            list -- A list of extension dict items
+            list -- A list of extension dict items representing the currently-
+            installed extensions for this editor.
         """
         if not self.installed:
             return []
@@ -84,11 +104,11 @@ class SupportedEditor(AttributeDict):
     def api_url(self):
         if self._api_url is not None:
             return self._api_url
-
         if self.api_root_url.startswith(_GITHUB_EDITOR_UPDATE_ROOT_URL):
             self._api_url = self.api_root_url
         else:
-            path = '/%s/%s/latest' % (_MACHINE.distro_query, self.remote_alias)
+            path = '/%s/%s/latest' % \
+                (_MARKETPLACE_EDITOR_DISTRO_PATTERN, self.remote_alias)
             self._api_url = '%s%s' % (self.api_root_url, path)
         return self._api_url
 
@@ -99,10 +119,11 @@ class SupportedEditor(AttributeDict):
         if self.api_url.startswith(_GITHUB_EDITOR_UPDATE_ROOT_URL):
             # if this editor uses the github api, we need to determine which
             # asset we're looking for and find the browser download url
-            target_ext = _MACHINE.distro_extension
             assets = api_json['assets']
-            asset = next(x for x in assets if x['name'].endswith(target_ext))
+            asset = next(x for x in assets if x['name'].endswith(
+                self.github_ext_pattern))
             return asset['browser_download_url']
+
         elif self.api_root_url == _MARKETPLACE_EDITOR_UPDATE_ROOT_URL:
             # if this editor uses the the visualstudio update api, then just
             # get the url key from the json result
@@ -179,6 +200,8 @@ Editors = AttributeDict({
         home_dirname='.vscode-oss',
         remote_alias='codium',
         api_root_url='https://api.github.com/repos/VSCodium/vscodium/releases/latest',
+        github_ext_pattern=platform_query(
+            darwin='dmg', windows='exe', linux='AppImage', rpm='rpm', deb='deb')
     )
 })
 
