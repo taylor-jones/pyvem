@@ -3,10 +3,7 @@ import json
 import re
 
 from functools import reduce
-from pyvsc._models import (
-    ExtensionQueryFilterType,
-    ExtensionQueryFlags
-)
+from pyvsc._models import ExtensionQueryFilterType, ExtensionQueryFlags
 
 _MARKETPLACE_BASE_URL = 'https://marketplace.visualstudio.com'
 _MARKETPLACE_API_VERSION = '6.0-preview.1'
@@ -53,7 +50,7 @@ class Marketplace():
     ):
         """
         Query the marketplace for extensions
-        
+
         Arguments:
             page_number {int} -- the which page of results to fetch
             page_size {int} -- how many results to fetch
@@ -89,14 +86,13 @@ class Marketplace():
     def get_extension(self, unique_id, flags=[]):
         """
         Get the marketplace response for a specific extension
-        
+
         Arguments:
             unique_id {str} -- The extension id in the format of
-            
-        
+
         Keyword Arguments:
             flags {list} -- An optional list of ExtensionQueryFlags
-        
+
         Returns:
             dict or None -- A dict from the JSON response of the HTTP request
                 or None if no matching extension was found.
@@ -156,7 +152,7 @@ class Marketplace():
 # Test Commands
 #######################################################################
 
-from pyvsc._extensions import Extension, MarketplaceExtension, GithubExtension
+from pyvsc._extension import Extension, MarketplaceExtension, GithubExtension
 from beeprint import pp
 
 m = Marketplace()
