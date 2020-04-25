@@ -152,12 +152,12 @@ class Marketplace():
 # Test Commands
 #######################################################################
 
-from pyvsc._extension import Extension, MarketplaceExtension, GithubExtension
-from beeprint import pp
+# from pyvsc._extension import Extension, MarketplaceExtension, GithubExtension
+# from beeprint import pp
 
-m = Marketplace()
+# m = Marketplace()
 
-e = m.get_extension('twxs.cmake')
+# e = m.get_extension('twxs.cmake')
 
 # e1 = m.get_extension('ms-azuretools.vscode-docker')        # has extensionDependencies
 # e2 = m.get_extension('donjayamanne.python-extension-pack') # has extensionPath
@@ -167,6 +167,6 @@ e = m.get_extension('twxs.cmake')
 
 # pp(e, max_depth=8, indent=2, width=200, sort_keys=True)
 
-ext = MarketplaceExtension(e)
-pp(ext, max_depth=8, indent=2, width=200, sort_keys=True)
+# ext = MarketplaceExtension(e)
+# pp(ext, max_depth=8, indent=2, width=200, sort_keys=True)
 

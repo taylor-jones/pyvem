@@ -8,16 +8,11 @@ import requests
 
 from pyvsc._util import dict_from_list_key, AttributeDict
 from pyvsc._machine import platform_query
-
-_LOGGER = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s]\t%(module)s::%(funcName)s:%(lineno)d | %(message)s'
-)
+from pyvsc._marketplace import Marketplace
 
 
 _GITHUB_API_ROOT_URI = 'https://api.github.com'
-
+_MARKETPLACE = Marketplace()
 
 # NOTE: Active issue for better handling offline binaries installation
 # https://github.com/microsoft/vscode-cpptools/issues/5290
@@ -54,7 +49,7 @@ class Extension():
         self.source_type = source_type
         self.unique_id = kwargs.get('unique_id')
         self.download_url = kwargs.get('download_url')
-        self.is_marketplace_extension = \
+        self.download_from_marketplace = \
             not self.unique_id in _NON_MARKETPLACE_EXTENSIONS.keys()
 
     def download(self):
@@ -192,17 +187,6 @@ class MarketplaceExtension(Extension):
             download_url=self.uri.vsix_package
         )
 
-        # NOTE: Keeping the logic here for this, but it may not be required
-        # to read the manifest for each extension, which would save significant
-        # time.
-
-        # NOTE: It's possible that reading the manifest and checking for
-        # runtime dependencies could be an indicator that an extension has
-        # platform-specific binaries that need to be manually installed?
-
-        # self.manifest = self._manifest(self.uri.manifest)
-
-
     #
     # process extension attributes from the marketplace response
     #
@@ -237,44 +221,28 @@ class MarketplaceExtension(Extension):
         match = dict_from_list_key(properties, key, value)
         return match['value'] if match else None
 
-    def _manifest(self, manifest_url):
-        """
-        Process the response from the manifest url, but only keep the info
-        we're interested in.
-        
-        Arguments:
-            manifest_url {str} -- url from which to request the manifest json
-        
-        Returns:
-            dict -- Parsed json response from the manifest url after only
-                picking through the attributes that we'd like to keep.
-        """
-        response = requests.get(manifest_url)
-        response.raise_for_status()
-        parsed = response.json()
-
-        return AttributeDict({
-            'activation_events': parsed.get('activationEvents'),
-            'scripts': parsed.get('scripts'),
-            'runtime_dependencies': parsed.get('runtimeDependencies'),
-        })
 
 
+def get_extension(unique_id):
+    """
+    Creates an Extension instance, using either the VSCode Marketplace or
+    GitHub, depending on the appropriate extension source.
 
+    Arguments:
+        unique_id {str} -- The unique id of the extension, which includes the
+        publisher and package in the format of {publisher}.{package}
 
-#
-# Example of assigning a Github Extension from the offline binary spec
-#
-from beeprint import pp
+    Returns:
+        Extension -- An instance of an Extension, either a GithubExtension or
+        a MarketplaceExtension
+    """
+    e = _NON_MARKETPLACE_EXTENSIONS.get(unique_id)
+    if e is None:
+        return MarketplaceExtension(_MARKETPLACE.get_extension(unique_id))
 
-cpptools = _NON_MARKETPLACE_EXTENSIONS.get('ms-vscode.cpptools')
-
-x = GithubExtension(
-    cpptools.owner,
-    cpptools.repo,
-    cpptools.asset_name,
-    unique_id = 'ms-vscode.cpptools',
-    # prerelease=True
-)
-
-pp(x)
+    return GithubExtension(
+        owner=e.owner,
+        repo=e.repo,
+        asset_name=e.asset_name,
+        unique_id=unique_id
+    )
