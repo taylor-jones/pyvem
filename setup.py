@@ -17,6 +17,7 @@ setup(
         'coloredlogs',
         'fabric',
         'paramiko',
+        'semantic_version',
     ],
     python_requires='>=2.7'
 )

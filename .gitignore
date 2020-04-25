@@ -111,3 +111,4 @@ dmypy.json
 
 .vscode
 config.dev.yml
+devel
