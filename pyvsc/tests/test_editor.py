@@ -5,7 +5,6 @@ import os
 import sys
 import unittest
 import requests
-import time
 import subprocess
 
 from pyvsc._editor import Editors

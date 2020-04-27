@@ -44,7 +44,6 @@ def github_get(url):
     """
     MAX_CONTENT_LEN = 1
     response = requests.get(url, stream=True)
-    response.raise_for_status()
 
     try:
         if int(response.headers.get('Content-Length')) > MAX_CONTENT_LEN:

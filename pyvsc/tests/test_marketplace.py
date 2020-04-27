@@ -5,8 +5,6 @@ import os
 import sys
 import unittest
 import requests
-import time
-import subprocess
 
 from pyvsc._marketplace import Marketplace
 from pyvsc.tests.test_util import should_skip_remote_testing

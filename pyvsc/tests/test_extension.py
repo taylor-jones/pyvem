@@ -5,8 +5,6 @@ import os
 import sys
 import unittest
 import requests
-import time
-import subprocess
 
 from pyvsc._extension import (
     Extension,
@@ -16,7 +14,10 @@ from pyvsc._extension import (
     get_extension
 )
 
-from pyvsc.tests.test_util import should_skip_remote_testing, github_get
+from pyvsc.tests.test_util import (
+    should_skip_remote_testing,
+    github_get
+)
 
 
 _GITHUB_EXTENSION_UNIQUE_ID = 'ms-vscode.cpptools'
@@ -46,6 +47,12 @@ class TestGithubExtensions(unittest.TestCase):
         url = e.download_url
         self.assertIsNotNone(url)
         self.assertEqual(github_get(url), 200)
+
+    def test_github_extension_invalid_release_download_url_is_not_found(self):
+        e = get_extension(_GITHUB_EXTENSION_UNIQUE_ID, release='0.0.0')
+        url = e.download_url
+        self.assertIsNotNone(url)
+        self.assertEqual(github_get(url), 404)
 
 
 @unittest.skipIf(*should_skip_remote_testing())
