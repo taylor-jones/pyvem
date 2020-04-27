@@ -9,7 +9,7 @@ import time
 import subprocess
 
 from pyvsc._editor import Editors
-from pyvsc.tests.test_util import should_skip_remote_testing
+from pyvsc.tests.test_util import should_skip_remote_testing, github_get
 
 
 class TestEditorAttributes(unittest.TestCase):
@@ -78,24 +78,7 @@ class TestEditorDownloadUrls(unittest.TestCase):
     def test_vscodium_download_url_is_valid(self):
         url = Editors.codium.download_url
         self.assertIsNotNone(url)
-
-        # Have to use GET instead of HEAD here, because GitHub doesn't allow
-        # HEAD requests, so we'd just get a status_code of 403.
-        
-        # This bit of code ensures we don't wait for the entire size response
-        # size of downloading VSCodium before we can return. Instead, we just
-        # get a specified content size (or timeout, whichever happens first),
-        # since we really only care about the status code of the request, not
-        # the body of the response.
-        MAX_CONTENT_LEN = 1
-        response = requests.get(url, stream=True)
-        response.raise_for_status()
-
-        try:
-            if int(response.headers.get('Content-Length')) > MAX_CONTENT_LEN:
-                raise ValueError
-        except ValueError:
-            self.assertEqual(response.status_code, 200)
+        self.assertEqual(github_get(url), 200)
 
 
 

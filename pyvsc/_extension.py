@@ -12,6 +12,7 @@ from pyvsc._marketplace import Marketplace
 
 
 _GITHUB_API_ROOT_URI = 'https://api.github.com'
+_GITHUB_ROOT_URI = 'https://github.com'
 _MARKETPLACE = Marketplace()
 
 # NOTE: Active issue for better handling offline binaries installation
@@ -143,9 +144,9 @@ class GithubExtension(Extension):
         Returns:
             str -- The direct url from which the extension can be downlaoded
         """
-        endpoint = '/repos/%s/%s/releases/download/%s/%s' % \
+        query_endpoint = '/%s/%s/releases/download/%s/%s' % \
             (self.owner, self.repo, self.release, self.asset_name)
-        return '%s%s.vsix' % (_GITHUB_API_ROOT_URI, endpoint)
+        return '%s%s' % (_GITHUB_ROOT_URI, query_endpoint)
 
 
 
@@ -223,7 +224,7 @@ class MarketplaceExtension(Extension):
 
 
 
-def get_extension(unique_id):
+def get_extension(unique_id, release='latest'):
     """
     Creates an Extension instance, using either the VSCode Marketplace or
     GitHub, depending on the appropriate extension source.
@@ -244,5 +245,6 @@ def get_extension(unique_id):
         owner=e.owner,
         repo=e.repo,
         asset_name=e.asset_name,
-        unique_id=unique_id
+        unique_id=unique_id,
+        release=release
     )
