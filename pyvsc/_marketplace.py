@@ -1,9 +1,22 @@
+from __future__ import print_function
+
 import requests
 import json
 import re
 
+from datetime import datetime
 from functools import reduce
-from pyvsc._models import ExtensionQueryFilterType, ExtensionQueryFlags
+from pyvsc._models import (
+    ExtensionQueryFilterType,
+    ExtensionQueryFlags
+)
+
+from pyvsc._util import (
+    dict_from_list_key,
+    human_number_format,
+    shell_dimensions
+)
+
 
 _MARKETPLACE_BASE_URL = 'https://marketplace.visualstudio.com'
 _MARKETPLACE_API_VERSION = '6.0-preview.1'
@@ -26,14 +39,14 @@ class Marketplace():
     def _post(self, endpoint, data={}, headers={}):
         """
         Performs a post request to the marketplace gallery.
-        
+
         Arguments:
             endpoint {str} -- The uri endpoint to append to the base url
-        
+
         Keyword Arguments:
             data {dict} -- The data to pass in the post request
             headers {dict} -- The headers to pass in the post request
-        
+
         Returns:
             Requests.response
         """
@@ -113,17 +126,96 @@ class Marketplace():
         return extensions[0] if extensions else None
 
 
+    def _format_search_results(self, search_results):
+        """
+        Formats the results of the search query to prepare them for output.
+
+        Arguments:
+            search_results {list} -- A list of search query results
+        """
+        def formatted_date(d):
+            dt = datetime.strptime(d, '%Y-%m-%dT%H:%M:%S.%fZ')
+            date = dt.date()
+            date = datetime.strptime(str(date), '%Y-%m-%d')
+            return date.strftime('%-m/%d/%y')
+
+        def unique_id(x):
+            return '%s.%s' % \
+                (x['extensionName'], x['publisher']['publisherName'])
+
+        def last_updated(x):
+            return formatted_date(x['versions'][0]['lastUpdated'])
+
+        def rating(x):
+            return '{:0.2f}'.format(dict_from_list_key(
+                x['statistics'], 'statisticName', 'weightedRating')['value'])
+
+        def installs(x):
+            return human_number_format(float(dict_from_list_key(
+                x['statistics'], 'statisticName', 'install')['value']))
+
+        return [
+            {
+                'NAME': unique_id(x),
+                'VERSION': x['versions'][0]['version'],
+                'LAST UPDATE': last_updated(x),
+                'RATING': rating(x),
+                'INSTALLS': installs(x),
+                'DESCRIPTION': x['shortDescription']
+            } for x in search_results
+        ]
+
+
+    def _print_search_results(self, search_results):
+        """
+        Prints the search results to the console.
+
+        Arguments:
+            search_results {list} -- A list of search results
+        """
+        if not search_results:
+            print('Your search didn\'t match any extensions.')
+            return None
+
+        shell_height, shell_width = shell_dimensions()
+        column_widths = [
+            36,     # extension name
+            7,      # version
+            11,     # last update
+            6,      # rating
+            8,      # install count
+            # description width is determined by remaining witdth
+        ]
+
+        description_width = shell_width - sum(column_widths) - 11
+        column_widths.append(description_width)
+        headers = search_results[0].keys()
+        padded_headers = zip(column_widths * len(headers), headers)
+        line_format_string = '%-*s  %*s  %*s  %*s  %*s   %-.*s'
+
+        # Print the headers
+        print(line_format_string % tuple([
+            item for list in padded_headers for item in list]))
+
+        # Print the results
+        for result in search_results:
+            values = result.values()
+            padded_values = zip(column_widths * len(values), values)
+            print(line_format_string % tuple([
+                result for list in padded_values for result in list]))
+
+
     def search_extensions(self, search_text, page_size=25, flags=[]):
         """
         Gets a list of search results from the VSCode Marketplace.
-        
+
         Arguments:
             search_text {str} -- The text to use for searching
-        
+
         Keyword Arguments:
             page_size {int} -- The number of results to return (default: {25})
             flags {list} -- A list of ExtensionQueryFlags
-        
+
         Returns:
             list -- A list of extension result dicts
         """
@@ -143,8 +235,11 @@ class Marketplace():
             flags=flags or self.default_flags,
             page_size=page_size
         )
-
-        return extensions
+        
+        # format the search results
+        results = self._format_search_results(extensions)
+        self._print_search_results(results)
+        return results
 
 
 
@@ -152,21 +247,7 @@ class Marketplace():
 # Test Commands
 #######################################################################
 
-# from pyvsc._extension import Extension, MarketplaceExtension, GithubExtension
-# from beeprint import pp
+from beeprint import pp
 
-# m = Marketplace()
-
-# e = m.get_extension('twxs.cmake')
-
-# e1 = m.get_extension('ms-azuretools.vscode-docker')        # has extensionDependencies
-# e2 = m.get_extension('donjayamanne.python-extension-pack') # has extensionPath
-# e3 = m.get_extension('ms-vscode.cpptools')
-
-# e4 = m.search_extensions('cpptools', page_size=3)
-
-# pp(e, max_depth=8, indent=2, width=200, sort_keys=True)
-
-# ext = MarketplaceExtension(e)
-# pp(ext, max_depth=8, indent=2, width=200, sort_keys=True)
-
+m = Marketplace()
+e = m.search_extensions('js', page_size=10)

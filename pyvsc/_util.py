@@ -1,11 +1,4 @@
-import logging
-
-_LOGGER = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s]\t%(module)s::%(funcName)s:%(lineno)d | %(message)s'
-)
-
+from os import path, popen
 
 class AttributeDict(dict):
     """
@@ -43,11 +36,7 @@ def expanded_path(p):
         str -- An expanded file-system path, regardless of whether or not the
             path actually exists.
     """
-    from os import path
-    try:
-        return path.abspath(path.expandvars(path.expanduser(p)))
-    except Exception as e:
-        _LOGGER.error(e)
+    return path.abspath(path.expandvars(path.expanduser(p)))
 
 
 def has_internet_connection():
@@ -65,8 +54,6 @@ def has_internet_connection():
         return True
     except OSError:
         return False
-    except Exception as e:
-        _LOGGER.error(e)
 
 
 def truthy_list(the_list):
@@ -100,14 +87,40 @@ def dict_from_list_key(the_list, key, value, default_response=None):
     Returns:
         dict -- The matching dict or None if not found
     """
-    the_list_type = type(the_list)
-    if the_list_type is not list:
+    data_type = type(the_list)
+    if data_type is not list:
         raise AttributeError(
-            'Expected a list, got a %s' % the_list_type.__name__)
-
+            'Expected a list, got a %s' % data_type.__name__)
     try:
         return next(x for x in the_list if x.get(key) == value)
     except Exception as e:
         print(e)
         return default_response
 
+
+def human_number_format(number):
+    """
+    Formats a number into a more human-friendly format (e.g. 1000 = 1K)
+
+    Arguments:
+        number {int} -- A numeric value to convert
+
+    Returns:
+        str -- The human-friendly-formatted string version of the number
+    """
+    from math import log, floor
+    units = ['', 'K', 'M', 'G', 'T', 'P']
+    k = 1000.0
+    magnitude = int(floor(log(number, k)))
+    return '%.1f%s' % (number / k**magnitude, units[magnitude])
+
+
+def shell_dimensions():
+    """
+    Returns the number of rows and columns visible in the current shell
+
+    Returns:
+        tuple(int, int)
+    """
+    rows, columns = popen('stty size', 'r').read().split()
+    return int(rows), int(columns)
