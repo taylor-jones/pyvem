@@ -4,6 +4,7 @@ import requests
 import json
 import re
 
+from textwrap import dedent
 from datetime import datetime
 from functools import reduce
 from pyvsc._models import (
@@ -126,6 +127,16 @@ class Marketplace():
         return extensions[0] if extensions else None
 
 
+    def _rating(self, x):
+        return '{:0.2f}'.format(dict_from_list_key(
+            x['statistics'], 'statisticName', 'weightedRating')['value'])
+
+
+    def _installs(self, x):
+        return human_number_format(float(dict_from_list_key(
+            x['statistics'], 'statisticName', 'install')['value']))
+
+
     def _format_search_results(self, search_results):
         """
         Formats the results of the search query to prepare them for output.
@@ -146,24 +157,21 @@ class Marketplace():
         def last_updated(x):
             return formatted_date(x['versions'][0]['lastUpdated'])
 
-        def rating(x):
-            return '{:0.2f}'.format(dict_from_list_key(
-                x['statistics'], 'statisticName', 'weightedRating')['value'])
-
-        def installs(x):
-            return human_number_format(float(dict_from_list_key(
-                x['statistics'], 'statisticName', 'install')['value']))
-
         return [
             {
                 'NAME': unique_id(x),
                 'VERSION': x['versions'][0]['version'],
                 'LAST UPDATE': last_updated(x),
-                'RATING': rating(x),
-                'INSTALLS': installs(x),
+                'RATING': self._rating(x),
+                'INSTALLS': self._installs(x),
                 'DESCRIPTION': x['shortDescription']
             } for x in search_results
         ]
+
+
+    def _show_no_results(self):
+        print('Your search didn\'t match any extensions.')
+        return None
 
 
     def _print_search_results(self, search_results):
@@ -174,8 +182,7 @@ class Marketplace():
             search_results {list} -- A list of search results
         """
         if not search_results:
-            print('Your search didn\'t match any extensions.')
-            return None
+            return self._show_no_results()
 
         shell_height, shell_width = shell_dimensions()
         column_widths = [
@@ -203,6 +210,39 @@ class Marketplace():
             padded_values = zip(column_widths * len(values), values)
             print(line_format_string % tuple([
                 result for list in padded_values for result in list]))
+
+
+    def get_extension_info(
+        self,
+        unique_id,
+        flags = [ExtensionQueryFlags.AllAttributes]
+    ):
+        x = self.get_extension(unique_id, flags=flags)
+        if not x:
+            return self._show_no_results()
+
+        output = '''
+        {:20} {:20}
+        {:20} {:20}
+        {:20} {:20}
+
+        {:40}
+        {:40}
+
+        {}
+        '''.format(
+            'Name: %s' % x['displayName'],
+            'Publisher: %s' % x['publisher']['publisherName'],
+            'Version: %s' % x['versions'][0]['version'],
+            'Releases: %s' % len(x['versions']),
+            'Rating: %s' % self._rating(x),
+            'Installs: %s' % self._installs(x),
+            'Categories: %s' % ', '.join(x['categories']),
+            'Tags: %s' % (', '.join(list(filter(lambda t: not t.startswith('__'), x['tags'])))),
+            x['shortDescription']
+        )
+
+        print(dedent(output))
 
 
     def search_extensions(self, search_text, page_size=25, flags=[]):
@@ -235,19 +275,8 @@ class Marketplace():
             flags=flags or self.default_flags,
             page_size=page_size
         )
-        
+
         # format the search results
         results = self._format_search_results(extensions)
         self._print_search_results(results)
         return results
-
-
-
-#######################################################################
-# Test Commands
-#######################################################################
-
-from beeprint import pp
-
-m = Marketplace()
-e = m.search_extensions('js', page_size=10)
