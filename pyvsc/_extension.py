@@ -223,10 +223,6 @@ class MarketplaceExtension(Extension):
         return match['value'] if match else None
 
 
-    # 
-    # 
-    # 
-
 
 def get_extension(unique_id, release='latest'):
     """
