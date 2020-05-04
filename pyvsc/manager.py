@@ -241,8 +241,6 @@ class ExtensionManager():
             '/Microsoft.VisualStudio.Services.VSIXPackage' % (
               publisher, publisher, package)
 
-    # https://twxs.gallerycdn.vsassets.io/extensions/twxs/cmake/0.0.17/1488841920286/Microsoft.VisualStudio.Services.VSIXPackage
-    # https://twxs.gallery.vsassets.io/_apis/public/gallery/publisher/twxs/extension/cmake/latest/assetbyname/Microsoft.VisualStudio.Services.VSIXPackage
 
     def cleanup_output_dir(self):
         """
@@ -258,8 +256,10 @@ class ExtensionManager():
         for the purpose of executing pyvsc), then we'll just remove the entire
         directory.
         """
-        LOGGER.info('Cleaning up downloaded extensions.')
+        LOGGER.info('Cleaning up downloaded extensions (remote).')
+        self.tunnel.rmdir(self.output)
 
+        LOGGER.info('Cleaning up downloaded extensions (local).')
         if self._output_preexisted == True:
             for ext in self.extensions:
                 try:
@@ -544,9 +544,12 @@ def main():
         port=options.ssh_port,
         user=options.ssh_user,
         gateway=options.ssh_gateway,
-        verbose=options.verbose,
-        dry_run=options.dry_run,
+        # password='pass',
     )
+
+    if not tunnel.is_connected():
+        LOGGER.error('Could not establish ssh tunnel connection.')
+        sys.exit(1)
 
     # initialize an instance of the VSC Manager
     manager = ExtensionManager(

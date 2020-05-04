@@ -1,50 +1,37 @@
 from fabric import Connection
-from paramiko import SFTPClient
 from getpass import getpass
 import logging
 
+# NOTE: Maybe this fn can import the parsed config to determine which tunnel
+# connection to establish, then instantiate a tunnel connection within itself
+# so that other modules can just import the already-established tunnel
+# connection?
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class Tunnel:
     def __init__(self, **kwargs):
-        verbose = kwargs.get('verbose')
         host = kwargs.get('host')
         port = kwargs.get('port')
         user = kwargs.get('user')
         gateway = kwargs.get('gateway')
+        password = kwargs.get('password')
 
-        if verbose:
-            _LOGGER.setLevel(__debug__)
-
-        # Establish the ssh & sftp connections
-        self.ssh = self.get_ssh_connection(host, port, user, gateway)
-        self.sftp = self.get_sftp_client(self.ssh)
+        # Establish the ssh connection
+        self._connection = self.get_connection(host, port, user, gateway)
 
 
-    def get_sftp_client(self, ssh_connection):
-        """
-        Establishes an SFTP client via a SSH connection to the remote host.
-
-        Arguments:
-            ssh_connection {Connection} -- An instance of an established 
-                fabic ssh Connection.
-
-        Returns:
-            paramiko.SFTPClient
-        """
+    def is_connected(self):
         try:
-            sftp_client = SFTPClient.from_transport(
-                ssh_connection.transport)
-            _LOGGER.debug('SFTP Client successfully established.')
-            return sftp_client
-        except Exception as e:
-            _LOGGER.error(e, exc_info=self.verbose)
+            return self._connection.is_connected
+        except Exception:
+            return False
 
 
-    def get_ssh_connection(self, host, port, user, gateway):
+    def get_connection(self, host, port, user, gateway=None):
         """
-        Establishes ssh and sftp connections to remote host(s).
+        Establishes ssh connection to remote host(s).
 
         Arguments:
             host {str} -- ip or hostname of remote host
@@ -61,58 +48,40 @@ class Tunnel:
             and password are the same for the ssh host and the gateway.
         """
         password = getpass('%s@%s password: ' % (user, host))
-        proxy = None
-
-        try:
-            # establish the gateway/proxy connection
-            proxy = Connection(
-                host=gateway,
-                user=user,
-                port=port,
-                connect_kwargs={'password': password}
-            ) if gateway is not None else None
-        except Exception as e:
-            _LOGGER.error(
-                'Failed to connect to gateway: %s' % (gateway),
-                exc_info=self.verbose)
 
         try:
             # establish the ssh connection
-            ssh_client = Connection(
+            connection = Connection(
                 host=host,
                 port=port,
                 user=user,
-                gateway=proxy,
+                gateway=Connection(
+                    host=gateway,
+                    user=user,
+                    port=port,
+                    connect_kwargs={'password': password}
+                ) if gateway is not None else None,
                 connect_kwargs={'password': password}
             )
 
-            # open the ssh connection
-            ssh_client.open()
-            _LOGGER.debug('SSH Client successfully established.')
-            return ssh_client
+            # open the ssh connection to test the connection
+            connection.open()
+            _LOGGER.info('Connected to host: %s.' % host)
+            return connection
 
         except Exception as e:
-            _LOGGER.error(
-                'Failed to connect to host: %s' % (host),
-                exc_info=self.verbose)
+            _LOGGER.error('Failed to connect to host: %s' % host)
 
 
-    def get(self, remote_path, local_path):
+    def get(self, remote, local):
         """
         Fetches a file from the remote path to the local path.
 
         Arguments:
-            remote_path {str} -- the path to the file on the remote host.
-            local_path {str} -- the path to the local file destination.
+            remote {str} -- the path to the file on the remote host.
+            local {str} -- the path to the local file destination.
         """
-        self.sftp.get(remote_path, local_path)
-
-
-    def listdir(self, path):
-        """
-        Lists the files in a specified directory.
-        """
-        return self.sftp.listdir(path)
+        self._connection.get(remote=remote, local=local)
 
 
     def rmdir(self, path):
@@ -122,10 +91,28 @@ class Tunnel:
         Arguments:
             path {str} -- the path to the file or directory to remove
         """
-        self.ssh.run('rm -rf %s' % (path))
+        self._connection.run('rm -rf %s' % path)
 
 
-    def run(self, command):
+    # NOTE: This is the v1 run
+
+    # def run(self, command):
+    #     """
+    #     Executes a command on the remote host over ssh and returns the output.
+
+    #     Arguments:
+    #         command {str} -- The command to execute
+
+    #     Returns:
+    #         str -- The output of executing the command from the remote host
+    #     """
+    #     result = self._connection.run(command)
+    #     return result.stderr if result.exited > 0 else result.stdout
+
+
+    # NOTE: possible V2 implementation
+
+    def run(self, command, hide=True):
         """
         Executes a command on the remote host over ssh and returns the output.
 
@@ -133,24 +120,18 @@ class Tunnel:
             command {str} -- The command to execute
 
         Returns:
-            str -- The output of executing the command from the remote host
+            Result -- The output of executing the command from the remote host
         """
-        result = self.ssh.run(command)
-        if result.exited > 0:
-            return result.stderr
-        return result.stdout
+        result = self._connection.run(command, hide=hide)
+        return result
 
 
     def __del__(self):
         """
-        Close the remote SSH and SFTP connections.
+        Close the remote SSH connection.
         """
         try:
-            self.ssh.close()
+            self._connection.close()
+            _LOGGER.info('Closed ssh tunnel connection.')
         except Exception as e:
             _LOGGER.warning('No ssh tunnel exists.')
-
-        try:
-            self.sftp.close()
-        except Exception as e:
-            _LOGGER.warning('No ftp connection exists.')

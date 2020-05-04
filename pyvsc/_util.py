@@ -1,5 +1,3 @@
-from os import path, popen
-
 class AttributeDict(dict):
     """
     Simple dot.notation access to dictionary attributes
@@ -24,6 +22,24 @@ def get_public_attributes(obj):
     return attributes
 
 
+def resolved_path(p):
+    """
+    Resolves and normalizes a path by:
+    - handling tilde expansion
+    - handling variable expansion
+    - removing relative segments
+    - resolving symbolic links
+
+    Arguments:
+        p {str} -- A file-system path
+
+    Returns:
+        str
+    """
+    from os import path
+    return path.realpath(path.normpath(path.expandvars(path.expanduser(p))))
+
+
 def expanded_path(p):
     """
     Expands a path to resolve variables, home directory, and relative paths
@@ -36,6 +52,7 @@ def expanded_path(p):
         str -- An expanded file-system path, regardless of whether or not the
             path actually exists.
     """
+    from os import path
     return path.abspath(path.expandvars(path.expanduser(p)))
 
 
@@ -122,5 +139,23 @@ def shell_dimensions():
     Returns:
         tuple(int, int)
     """
+    from os import popen
     rows, columns = popen('stty size', 'r').read().split()
     return int(rows), int(columns)
+
+
+def iso_now(include_microseconds=False):
+    """
+    Returns an ISO timestamp of the current local time.
+    
+    Arguments:
+        include_microseconds {bool} -- whether or not to include microseconds in
+            the returned timestamp.
+
+    Returns:
+        str
+    """
+    from datetime import datetime
+    if include_microseconds:
+        return datetime.now().isoformat()
+    return datetime.now().replace(microsecond=0).isoformat()

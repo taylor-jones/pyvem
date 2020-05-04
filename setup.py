@@ -10,6 +10,7 @@ setup(
     entry_points={
         'console_scripts': [
             'vsc = pyvsc.manager:main',
+            'vem = pyvsc.main:main',
         ]
     },
     install_requires=[

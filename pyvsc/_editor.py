@@ -4,7 +4,6 @@ from __future__ import unicode_literals
 
 import os
 import re
-import logging
 import subprocess
 import requests
 
@@ -35,15 +34,12 @@ _MARKETPLACE_EDITOR_DISTRO_PATTERN = platform_query(
     deb32='linux-deb-ia32'
 )
 
-#
-# Setup Logging
-#
 
-_LOGGER = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s [%(levelname)s]\t%(module)s::%(funcName)s:%(lineno)d | %(message)s'
-)
+class SupportedEditorCommands:
+    code = 'code'
+    insiders = 'code-insiders'
+    exploration = 'code-exploration'
+    codium = 'codium'
 
 
 class SupportedEditor(AttributeDict):
@@ -112,6 +108,7 @@ class SupportedEditor(AttributeDict):
             self._api_url = '%s%s' % (self.api_root_url, path)
         return self._api_url
 
+
     @property
     def download_url(self):
         api_json = self._api_json or requests.get(self.api_url).json()
@@ -129,6 +126,7 @@ class SupportedEditor(AttributeDict):
             # get the url key from the json result
             return api_json['url']
 
+
     @property
     def extensions_dir(self):
         if self._extensions_dir is None:
@@ -136,11 +134,13 @@ class SupportedEditor(AttributeDict):
                 '$HOME/%s/extensions' % self.home_dirname)
         return self._extensions_dir
 
+
     @property
     def installed(self):
         if self._installed is None:
             self._installed = find_executable(self.command) is not None
         return self._installed
+
 
     @property
     def can_update(self):
@@ -169,7 +169,6 @@ class SupportedEditor(AttributeDict):
                 or self.hash != remote_hash)
 
         except Exception as e:
-            _LOGGER.debug(e)
             self._can_update = False
         finally:
             return self._can_update
@@ -181,22 +180,22 @@ class SupportedEditor(AttributeDict):
 
 Editors = AttributeDict({
     'code': SupportedEditor(
-        command='code',
+        command=SupportedEditorCommands.code,
         home_dirname='.vscode',
         remote_alias='stable',
     ),
     'insiders': SupportedEditor(
-        command='code-insiders',
+        command=SupportedEditorCommands.insiders,
         home_dirname='.vscode-insiders',
         remote_alias='insider',
     ),
     'exploration': SupportedEditor(
-        command='code-exploration',
+        command=SupportedEditorCommands.exploration,
         home_dirname='.vscode-exploration',
         remote_alias='exploration',
     ),
     'codium': SupportedEditor(
-        command='codium',
+        command=SupportedEditorCommands.codium,
         home_dirname='.vscode-oss',
         remote_alias='codium',
         api_root_url='https://api.github.com/repos/VSCodium/vscodium/releases/latest',

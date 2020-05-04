@@ -53,8 +53,17 @@ class Extension():
         self.download_from_marketplace = \
             not self.unique_id in _NON_MARKETPLACE_EXTENSIONS.keys()
 
-    def download(self):
-        pass
+
+    def download(self, directory):
+        ext_name = self.unique_id
+        if hasattr(self, 'version'):
+            ext_name = '%s-%s' % (ext_name, self.version)
+
+        res = requests.get(self.download_url, allow_redirects=True)
+        with open('%s/%s.vsix' % (directory, ext_name), 'wb') as f:
+            f.write(res.content)
+            f.close()
+
 
 
 class GithubExtension(Extension):
@@ -188,9 +197,7 @@ class MarketplaceExtension(Extension):
             download_url=self.uri.vsix_package
         )
 
-    #
     # process extension attributes from the marketplace response
-    #
 
     def _manifest_url(self, files):
         key = 'assetType'
@@ -248,3 +255,9 @@ def get_extension(unique_id, release='latest'):
         unique_id=unique_id,
         release=release
     )
+
+
+# d = '/Users/taylor/Downloads/vsc-123'
+# e = get_extension('twxs.cmake')
+
+# e.download(d)

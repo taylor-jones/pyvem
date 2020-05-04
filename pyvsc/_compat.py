@@ -61,3 +61,4 @@ def split(string, delimiter):
     else:
         import re
         return [re.split(delimiter, x) for x in string]
+
