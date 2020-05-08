@@ -48,7 +48,7 @@ class HelpCommand(Command):
     def __init__(self, name, aliases=[]):
         super().__init__(name, _HELP, aliases=aliases)
 
-    def run(self, args, parser, **kwargs):
+    def run(self, *args, **kwargs):
         """
         Implements the `help` commands functionality.
 
@@ -58,8 +58,9 @@ class HelpCommand(Command):
         """
         # If the `help` command didn't get any arguments, just show the
         # default vem help screen and then exit.
+        args = Command.options.args
         if not args:
-            parser.print_help()
+            Command.parser.print_help()
             sys.exit(1)
 
         # Otherwise, parse the command name.

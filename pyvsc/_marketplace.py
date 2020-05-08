@@ -1,43 +1,36 @@
-from __future__ import print_function
+from __future__ import print_function, absolute_import
 
-import requests
 import json
 import re
 
 from textwrap import dedent
 from datetime import datetime
 from functools import reduce
-from pyvsc._models import (
-    ExtensionQueryFilterType,
-    ExtensionQueryFlags
-)
 
-from pyvsc._util import (
-    dict_from_list_key,
-    human_number_format,
-    shell_dimensions
-)
+from pyvsc._curler import CurledRequest
+from pyvsc._models import ExtensionQueryFilterType, ExtensionQueryFlags
+from pyvsc._util import dict_from_list_key
+from pyvsc._util import human_number_format
+from pyvsc._util import shell_dimensions
 
 
 _MARKETPLACE_BASE_URL = 'https://marketplace.visualstudio.com'
 _MARKETPLACE_API_VERSION = '6.0-preview.1'
 
+_curled = CurledRequest()
 
 class Marketplace():
-    def __init__(
-        self,
-        base_url=_MARKETPLACE_BASE_URL,
-        api_version=_MARKETPLACE_API_VERSION,
-    ):
-        self.base_url = base_url
-        self.api_version = api_version
+    def __init__(self, tunnel=None):
+        self.tunnel = tunnel
+        self.base_url = _MARKETPLACE_BASE_URL
+        self.api_version = _MARKETPLACE_API_VERSION
         self.default_flags = [
             ExtensionQueryFlags.AllAttributes,
             ExtensionQueryFlags.IncludeLatestVersionOnly,
         ]
 
 
-    def _post(self, endpoint, data={}, headers={}):
+    def _post(self, endpoint, data={}, headers={}, **kwargs):
         """
         Performs a post request to the marketplace gallery.
 
@@ -52,7 +45,8 @@ class Marketplace():
             Requests.response
         """
         url = '%s/_apis/public%s' % (self.base_url, endpoint)
-        return requests.post(url, data=json.dumps(data), headers=headers)
+        curl_request = _curled.post(url, data=data, headers=headers)
+        return self.tunnel.run(curl_request)
 
 
     def extension_query(
@@ -89,12 +83,18 @@ class Marketplace():
             'Content-Type': 'application/json',
         }
 
-        res = self._post('/gallery/extensionquery', data=data, headers=headers)
-        if res.status_code != 200:
-            return []
+        result = self._post(
+            '/gallery/extensionquery',
+            data=data,
+            headers=headers,
+            compressed=False
+        )
 
-        parsed = res.json()
-        return parsed['results'][0]['extensions']
+        if result.exited == 0:
+            parsed = json.loads(result.stdout)
+            return parsed['results'][0]['extensions']
+
+        return []
 
 
     def get_extension(self, unique_id, flags=[]):
@@ -132,9 +132,37 @@ class Marketplace():
             x['statistics'], 'statisticName', 'weightedRating')['value'])
 
 
+    def _rating_count(self, x):
+        return '%d' % dict_from_list_key(
+            x['statistics'], 'statisticName', 'ratingcount')['value']
+
+
+    def _engine(self, x):
+        return '%s' % dict_from_list_key(
+            x['versions'][0]['properties'],
+            'key',
+            'Microsoft.VisualStudio.Code.Engine'
+        )['value']
+
+
+    def _dependencies(self, x):
+        return '%s' % dict_from_list_key(
+            x['versions'][0]['properties'],
+            'key',
+            'Microsoft.VisualStudio.Code.ExtensionDependencies'
+        )['value']
+
+
     def _installs(self, x):
         return human_number_format(float(dict_from_list_key(
             x['statistics'], 'statisticName', 'install')['value']))
+
+
+    def _formatted_date(self, d):
+        dt = datetime.strptime(d, '%Y-%m-%dT%H:%M:%S.%fZ')
+        date = dt.date()
+        date = datetime.strptime(str(date), '%Y-%m-%d')
+        return date.strftime('%-m/%d/%y')
 
 
     def _format_search_results(self, search_results):
@@ -144,18 +172,12 @@ class Marketplace():
         Arguments:
             search_results {list} -- A list of search query results
         """
-        def formatted_date(d):
-            dt = datetime.strptime(d, '%Y-%m-%dT%H:%M:%S.%fZ')
-            date = dt.date()
-            date = datetime.strptime(str(date), '%Y-%m-%d')
-            return date.strftime('%-m/%d/%y')
-
         def unique_id(x):
             return '%s.%s' % \
                 (x['extensionName'], x['publisher']['publisherName'])
 
         def last_updated(x):
-            return formatted_date(x['versions'][0]['lastUpdated'])
+            return self._formatted_date(x['versions'][0]['lastUpdated'])
 
         return [
             {
@@ -217,29 +239,40 @@ class Marketplace():
         unique_id,
         flags = [ExtensionQueryFlags.AllAttributes]
     ):
-        x = self.get_extension(unique_id, flags=flags)
-        if not x:
+        ex = self.get_extension(unique_id, flags=flags)
+        if not ex:
             return self._show_no_results()
 
-        output = '''
-        {:20} {:20}
-        {:20} {:20}
-        {:20} {:20}
+        tags = ', '.join(list(filter(
+            lambda t: not t.startswith('__'), ex['tags'])))
 
-        {:40}
-        {:40}
+        output = '''
+        {:25} {:25}
+        {:25} {:25}
+        {:25} {:25}
+        {:25} {:25}
+
+        {:50}
+        {:50}
+
+        {:50}
+        {:50}
 
         {}
         '''.format(
-            'Name: %s' % x['displayName'],
-            'Publisher: %s' % x['publisher']['publisherName'],
-            'Version: %s' % x['versions'][0]['version'],
-            'Releases: %s' % len(x['versions']),
-            'Rating: %s' % self._rating(x),
-            'Installs: %s' % self._installs(x),
-            'Categories: %s' % ', '.join(x['categories']),
-            'Tags: %s' % (', '.join(list(filter(lambda t: not t.startswith('__'), x['tags'])))),
-            x['shortDescription']
+            'Name: %s' % ex['displayName'],
+            'Releases: %s' % len(ex['versions']),
+            'Publisher: %s' % ex['publisher']['publisherName'],
+            'Release Date: %s' % self._formatted_date(ex['releaseDate']),
+            'Latest Version: %s' % ex['versions'][0]['version'],
+            'Last Updated: %s' % self._formatted_date(ex['lastUpdated']),
+            'Rating: %s (%s)' % (self._rating(ex), self._rating_count(ex)),
+            'Installs: %s' % self._installs(ex),
+            'Required VSCode Version: %s' % self._engine(ex),
+            'Extension Dependencies: %s' % self._dependencies(ex),
+            'Categories: %s' % ', '.join(ex['categories']),
+            'Tags: %s' % tags,
+            ex['shortDescription']
         )
 
         print(dedent(output))

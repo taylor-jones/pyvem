@@ -1,79 +1,21 @@
 from __future__ import print_function
 from __future__ import absolute_import
 
+import re
 import os
 import sys
-
-import logging
 import configargparse
-import coloredlogs
+import logging
 
-from fabric.util import get_local_user
 from pyvsc._tunnel import Tunnel
-from pyvsc._util import AttributeDict, iso_now, resolved_path
+from pyvsc._util import iso_now, resolved_path, AttributeDict
 from pyvsc._editor import SupportedEditorCommands
-from pyvsc.commands import (
-    config_command,
-    help_command,
-    info_command,
-    install_command,
-    list_command,
-    outdated_command,
-    search_command,
-    update_command,
-    version_command,
-)
 
 from pyvsc.commands import _COMMAND_NAMES, get_command_obj
+from pyvsc._command import Command
+from pyvsc._exceptions import raise_argument_error
 from pyvsc._config import _PROG
-
-"""
-Usage: vem <command> [args]
-
-where <command> is one of:
-...
-...
-...
-
-**** commands I'd like to implement:
---------------------------------------------------------------------------
-config -- manage the vem configuration files
-help -- show help
-info -- get info for a particular marketplace extension
-install -- install extensions from the marketplace space-delimited
-list (or ls) [editor] - list installed packages
-outdated [editor] -- find all extensions that can be updated
-search -- query the marketplace for matching extensions
-update -- update extensions space-delimited   <-- would like to be able to update vem too
-version -- show the vem version
-"""
-
-_LOGGER = logging.getLogger(__name__)
-coloredlogs.install(
-    level='DEBUG',
-    logger=_LOGGER,
-    fmt='%(asctime)s,%(msecs)03d %(name)s %(levelname)s %(message)s'
-)
-
-
-def get_commands():
-    """
-    Returns a list of all the filenames (without their extensions) from the
-    commands/ directory, which represents the names of all the valid commands.
-
-    Returns:
-        list
-    """
-    from os import listdir
-    d = os.path.dirname(__file__)
-    p = os.path.join(d, 'commands')
-    return [f.split('.')[0] for f in listdir(p) if f != '__init__.py']
-
-
-
-_USAGE = '%s <command> [options]\n\nwhere <command> is one of:\n%s\n\nFor ' \
-    'help about a certain command:\n\t%s help <command>'% \
-        (_PROG, '\t' + ', '.join(_COMMAND_NAMES), _PROG)
+from pyvsc._containers import parsed_connection_parts
 
 
 def create_main_parser():
@@ -84,7 +26,9 @@ def create_main_parser():
         ConfigArgParse.ArgParser
     """
     parser_kwargs = {
-        'usage': _USAGE,
+        'usage': '%s <command> [options]\n\nwhere <command> is one of:\n%s' \
+            '\n\nFor help about a certain command:\n\t%s help <command>'% \
+            (_PROG, '\t' + ', '.join(_COMMAND_NAMES), _PROG),
         'add_help': False,
         'default_config_files': ['.vemrc', '~/.vemrc', '~/.config/.vemrc'],
         'prog': _PROG,
@@ -92,46 +36,44 @@ def create_main_parser():
 
     parser = configargparse.ArgumentParser(**parser_kwargs)
 
-    # Usual arguments which are applicable for the whole script / top-level args
-    parser.add(
+    parser.add_argument(
         'command',
         nargs='?',
         choices=_COMMAND_NAMES.append(None),
         help='The main vem command to execute.'
     )
 
-    parser.add(
+    parser.add_argument(
         'args',
         nargs='*',
         default=[],
         help='The command arguments.'
     )
 
-    parser.add(
+    parser.add_argument(
         '--help',
         action='help',
         help='Show help.'
     )
 
-    parser.add(
-        '-V',
-        '--version',
+    parser.add_argument(
+        '-V', '--version',
         action='store_true',
         default=False,
         help='Show version and exit.'
     )
 
-    parser.add(
-        '-h',
-        '--ssh-host',
+    parser.add_argument(
+        '-h', '--ssh-host',
         default='',
+        type=parsed_connection_parts,
         help='Specify a SSH host in the form [user@]server[:port].'
     )
 
-    parser.add(
-        '-g',
-        '--ssh-gateway',
+    parser.add_argument(
+        '-g', '--ssh-gateway',
         default='',
+        type=parsed_connection_parts,
         help='Specify a SSH gateway in the form [user@]server[:port].'
     )
 
@@ -142,18 +84,16 @@ def create_main_parser():
     log_level = parser.add_mutually_exclusive_group()
     parser.set_defaults(log_level=logging.INFO)
 
-    parser.add(
-        '-v',
-        '--verbose',
+    parser.add_argument(
+        '-v', '--verbose',
         action='store_const',
         dest='log_level',
         const=logging.DEBUG,
         help='Show debug output.'
     )
 
-    parser.add(
-        '-q',
-        '--quiet',
+    parser.add_argument(
+        '-q', '--quiet',
         action='store_const',
         dest='log_level',
         const=logging.ERROR,
@@ -205,6 +145,7 @@ def create_main_parser():
 def main():
     parser = create_main_parser()
     args, remainder = parser.parse_known_args()
+    # print(args)
 
     # For now, add any remainder arguments to the extra args that we store
     # in a list after plucking the command.
@@ -226,10 +167,10 @@ def main():
     # If so, pass it along to that command object to run. Otherwise, print
     # an error message and exit.
     command = get_command_obj(args.command)
-    if command:
-        command.run(args.args, parser)
+    if isinstance(command, Command):
+        command.invoke(parser, args)
     else:
-        _LOGGER.error('Could not parse command: %s' % args.command)
+        raise_argument_error(parser, args.command, 'Could not parse command.')
 
 
 if __name__ == "__main__":

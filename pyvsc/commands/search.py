@@ -43,7 +43,7 @@ class SearchCommand(Command):
     def __init__(self, name, aliases=[]):
         super().__init__(name, _HELP, aliases=aliases)
 
-    def run(self, args, parser, **kwargs):
+    def run(self, *args, **kwargs):
         print('TODO: Imlement SearchCommand.run()')
 
 

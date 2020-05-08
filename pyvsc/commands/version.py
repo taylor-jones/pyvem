@@ -34,7 +34,7 @@ class VersionCommand(Command):
     def __init__(self, name, aliases=[]):
         super().__init__(name, _HELP, aliases=aliases)
 
-    def run(self, args, parser, **kwargs):
+    def run(self, *args, **kwargs):
         """
         Just print the program's version and exit.
         """

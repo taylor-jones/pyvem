@@ -1,5 +1,6 @@
 from __future__ import print_function
 from distutils.spawn import find_executable
+from getpass import getpass
 
 import os
 import sys
@@ -7,13 +8,20 @@ import unittest
 import requests
 
 from pyvsc._marketplace import Marketplace
+from pyvsc._containers import ConnectionParts
+from pyvsc._tunnel import Tunnel
 from pyvsc.tests.test_util import should_skip_remote_testing
+
+
+_ssh_host = ConnectionParts(hostname='centos', password='pass')
+_ssh_gateway = ConnectionParts(hostname='centos2', password='pass')
+_tunnel = Tunnel(_ssh_host, _ssh_gateway, True)
 
 
 @unittest.skipIf(*should_skip_remote_testing())
 class TestMarketplace(unittest.TestCase):
     def test_marketplace_should_be_able_to_get_exact_extension(self):
-        m = Marketplace()
+        m = Marketplace(tunnel=_tunnel)
         # use a known [publisher].[package] name
         uid = 'twxs.cmake'
         response = m.get_extension(uid)
@@ -22,7 +30,7 @@ class TestMarketplace(unittest.TestCase):
         self.assertTrue(bool(response))
 
     def test_marketplace_should_be_able_search_extensions(self):
-        m = Marketplace()
+        m = Marketplace(tunnel=_tunnel)
         # use a generic search text that is known to have a bunch of results
         search_text = 'js'
         response_count = 10

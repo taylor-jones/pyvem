@@ -4,6 +4,22 @@ Exceptions used throughout the package
 
 from __future__ import absolute_import
 from itertools import chain, groupby, repeat
+import textwrap
+
+def raise_argument_error(parser, argument, message):
+    # type: (ArgParser, Argument, str) -> None
+    """
+    Raise an argument parsing error using parser.error().
+
+    Args:
+      parser: an ArgParser instance.
+      argument: an Argument instance.
+      message: the error text.
+    """
+    message = '{} error: {}'.format(argument, message)
+    message = textwrap.fill(' '.join(message.split()))
+    parser.error(message)
+
 
 
 class VemError(Exception):

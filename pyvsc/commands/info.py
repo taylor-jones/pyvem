@@ -32,8 +32,16 @@ class InfoCommand(Command):
     def __init__(self, name, aliases=[]):
         super().__init__(name, _HELP, aliases=aliases)
 
-    def run(self, args, parser, **kwargs):
-        print('TODO: Imlement InfoCommand.run()')
+    def run(self, *args, **kwargs):
+        args = Command.options.args
+        arg_count = len(args)
+        
+        if arg_count == 1:
+            Command.tunnel.connect()
+            Command.marketplace.get_extension_info(args[0])
+        else:
+            print(red('The "info" command expects 1 argument.'))
+            return False
 
 
 info_command = InfoCommand(

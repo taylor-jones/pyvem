@@ -1,3 +1,5 @@
+from __future__ import print_function, absolute_import
+
 import sys
 import json
 from requests import Request
@@ -114,36 +116,27 @@ class CurledRequest():
 
 
 
-import os
-from pyvsc._tunnel import tunnel
+# # import os
+# from pyvsc._tunnel import Tunnel
+# from pyvsc._containers import ConnectionParts
+# from beeprint import pp
 
-# from pyvsc._editor import Editors
-# insiders_url = Editors.insiders.download_url
+# _ssh_host = ConnectionParts(hostname='centos', password='pass')
+# _ssh_gateway = ConnectionParts(hostname='centos2', password='pass')
+# _tunnel = Tunnel(_ssh_host, _ssh_gateway, True)
 
+# curled_request = CurledRequest()
 
-url = 'https://az764295.vo.msecnd.net/insider/ece7aaee861d7261a728d52ce436c667030ce17d/VSCode-darwin-insider.zip'
+# url = 'https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery'
+# data = {'filters': [{'pageNumber': 1, 'pageSize': 1, 'criteria': [{'filterType': 8, 'value': 'Microsoft.VisualStudio.Code'}, {'filterType': 7, 'value': 'twxs.cmake'}]}], 'flags': 17375}
+# headers = {'Accept': 'application/json;api-version=6.0-preview.1', 'Accept-Encoding': 'gzip', 'Content-Type': 'application/json'}
 
-curled_request = CurledRequest()
-# x = curled_request.get(url, output_dir='/tmp')
+# x = curled_request.post(url, data=data, headers=headers)
+# print(type(x))
 # print(x)
 
-
-url = 'https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery'
-data = {'filters': [{'pageNumber': 1, 'pageSize': 1, 'criteria': [{'filterType': 8, 'value': 'Microsoft.VisualStudio.Code'}, {'filterType': 7, 'value': 'twxs.cmake'}]}], 'flags': 17375}
-headers = {'Accept': 'application/json;api-version=6.0-preview.1', 'Accept-Encoding': 'gzip', 'Content-Type': 'application/json'}
-
-x = curled_request.post(url, data=data, headers=headers)
-# print(x)
-
-# t.run(x)
-# res = json.loads(t.run(x, hide=True))
-
-from beeprint import pp
-
-res = tunnel.run(x, hide=True)
-print(type(res))
-print('stdout: %s' % res.stdout)
-print('stderr: %s' % res.stderr)
-pp(res)
-
+# res = _tunnel.run(x, hide=True)
+# print(type(res))
+# print('stdout: %s' % res.stdout)
+# print('stderr: %s' % res.stderr)
 # pp(res)
