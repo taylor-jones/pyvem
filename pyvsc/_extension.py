@@ -1,12 +1,13 @@
 from __future__ import print_function
-from __future__ import generators
+from __future__ import absolute_import
 
 import re
 import os
 import logging
 import requests
 
-from pyvsc._util import dict_from_list_key, AttributeDict
+from pyvsc._util import dict_from_list_key
+from pyvsc._containers import AttributeDict
 from pyvsc._machine import platform_query
 from pyvsc._marketplace import Marketplace
 

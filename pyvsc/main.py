@@ -7,15 +7,22 @@ import sys
 import configargparse
 import logging
 
+from fuzzywuzzy import process
 from pyvsc._tunnel import Tunnel
-from pyvsc._util import iso_now, resolved_path, AttributeDict
+from pyvsc._util import iso_now, resolved_path
+from pyvsc._containers import AttributeDict
 from pyvsc._editor import SupportedEditorCommands
 
-from pyvsc.commands import _COMMAND_NAMES, get_command_obj
+from pyvsc.commands import _COMMAND_NAMES
+from pyvsc.commands import _COMMAND_NAMES_AND_ALIASES
+from pyvsc.commands import get_command_obj
+
 from pyvsc._command import Command
 from pyvsc._exceptions import raise_argument_error
 from pyvsc._config import _PROG
 from pyvsc._containers import parsed_connection_parts
+from pyvsc._colored import red, cyan
+
 
 
 def create_main_parser():
@@ -52,7 +59,7 @@ def create_main_parser():
 
     parser.add_argument(
         '--help',
-        action='help',
+        action='store_true',
         help='Show help.'
     )
 
@@ -169,8 +176,25 @@ def main():
     command = get_command_obj(args.command)
     if isinstance(command, Command):
         command.invoke(parser, args)
+    elif args.help:
+        parser.print_help()
     else:
-        raise_argument_error(parser, args.command, 'Could not parse command.')
+        print(red('"%s" is not a valid %s command.\n' % (args.command, _PROG)))
+
+        # Check for fuzzy-ish matches. Limit to 50% matches or greater.
+        similar = [
+            x[0] for x in process.extract(
+                args.command,
+                _COMMAND_NAMES_AND_ALIASES
+            )if x[1] > 50
+        ]
+
+        # If any similar-enough matches were found, print those suggestions
+        if similar:
+            print('Maybe you meant one of these commands?\n%s\n' \
+                % ', '.join(similar))
+
+        parser.print_usage()
 
 
 if __name__ == "__main__":

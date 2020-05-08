@@ -1,12 +1,3 @@
-class AttributeDict(dict):
-    """
-    Simple dot.notation access to dictionary attributes
-    """
-    __getattr__ = dict.get
-    __setattr__ = dict.__setitem__
-    __delattr__ = dict.__delitem__
-
-
 def get_public_attributes(obj):
     """
     Returns a dict containing only the non-underscored attributes from
@@ -110,6 +101,8 @@ def dict_from_list_key(the_list, key, value, default_response=None):
             'Expected a list, got a %s' % data_type.__name__)
     try:
         return next(x for x in the_list if x.get(key) == value)
+    except TypeError:
+        return default_response
     except Exception as e:
         print(e)
         return default_response
@@ -129,6 +122,8 @@ def human_number_format(number):
     units = ['', 'K', 'M', 'G', 'T', 'P']
     k = 1000.0
     magnitude = int(floor(log(number, k)))
+    if magnitude == 0:
+        return '%d%s' % (number / k**magnitude, units[magnitude])
     return '%.1f%s' % (number / k**magnitude, units[magnitude])
 
 

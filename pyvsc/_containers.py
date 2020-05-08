@@ -2,12 +2,20 @@ from __future__ import print_function, absolute_import
 
 import re
 import base64
+
 from uuid import uuid4
 from cryptography.fernet import Fernet
 
-from collections import namedtuple
 from pyvsc._config import _DEFAULT_SSH_PORT, _DEFAULT_SSH_USER
-from pyvsc._util import AttributeDict
+
+
+class AttributeDict(dict):
+    """
+    Simple dot.notation access to dictionary attributes
+    """
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
 
 
 

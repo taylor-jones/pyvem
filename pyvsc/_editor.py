@@ -8,7 +8,8 @@ import subprocess
 import requests
 
 from distutils.spawn import find_executable
-from pyvsc._util import AttributeDict, expanded_path, truthy_list
+from pyvsc._util import expanded_path, truthy_list
+from pyvsc._containers import AttributeDict
 from pyvsc._compat import is_py3, popen, split
 from pyvsc._machine import platform_query
 

@@ -7,6 +7,7 @@ from textwrap import dedent
 from datetime import datetime
 from functools import reduce
 
+
 from pyvsc._curler import CurledRequest
 from pyvsc._models import ExtensionQueryFilterType, ExtensionQueryFlags
 from pyvsc._util import dict_from_list_key
@@ -55,6 +56,7 @@ class Marketplace():
         page_size=1,
         flags=[],
         criteria=[],
+        sort_by=0,
     ):
         """
         Query the marketplace for extensions
@@ -73,6 +75,7 @@ class Marketplace():
                 'pageNumber': page_number,
                 'pageSize': page_size,
                 'criteria': criteria,
+                'sortBy': sort_by,
             }],
             'flags': reduce((lambda a, b: a | b), flags) if flags else 0
         }
@@ -133,8 +136,14 @@ class Marketplace():
 
 
     def _rating_count(self, x):
-        return '%d' % dict_from_list_key(
-            x['statistics'], 'statisticName', 'ratingcount')['value']
+        count = dict_from_list_key(
+            x['statistics'],
+            'statisticName',
+            'ratingcount'
+        )
+
+        return count['value'] if count else 0
+
 
 
     def _engine(self, x):
@@ -146,11 +155,13 @@ class Marketplace():
 
 
     def _dependencies(self, x):
-        return '%s' % dict_from_list_key(
+        key = dict_from_list_key(
             x['versions'][0]['properties'],
             'key',
-            'Microsoft.VisualStudio.Code.ExtensionDependencies'
-        )['value']
+            'Microsoft.VisualStudio.Code.ExtensionDependencies',
+        )
+
+        return (key['value'] or 'None') if key else None
 
 
     def _installs(self, x):
@@ -159,7 +170,14 @@ class Marketplace():
 
 
     def _formatted_date(self, d):
-        dt = datetime.strptime(d, '%Y-%m-%dT%H:%M:%S.%fZ')
+        try:
+            dt = datetime.strptime(d, '%Y-%m-%dT%H:%M:%S.%fZ')
+        except ValueError:
+            try:
+                dt = datetime.strptime(d, '%Y-%m-%dT%H:%M:%S:%fZ')
+            except ValueError:
+                dt = datetime.strptime(d, '%Y-%m-%dT%H:%M:%SZ')
+
         date = dt.date()
         date = datetime.strptime(str(date), '%Y-%m-%d')
         return date.strftime('%-m/%d/%y')
@@ -172,21 +190,25 @@ class Marketplace():
         Arguments:
             search_results {list} -- A list of search query results
         """
-        def unique_id(x):
+        def _unique_id(x):
             return '%s.%s' % \
-                (x['extensionName'], x['publisher']['publisherName'])
+                (x['publisher']['publisherName'], x['extensionName'])
 
-        def last_updated(x):
+        def _last_updated(x):
             return self._formatted_date(x['versions'][0]['lastUpdated'])
+
+        def _description(x):
+            key = 'shortDescription'
+            return x[key] if key in x else ''
 
         return [
             {
-                'NAME': unique_id(x),
+                'EXTENSION ID': _unique_id(x),
                 'VERSION': x['versions'][0]['version'],
-                'LAST UPDATE': last_updated(x),
+                'LAST UPDATE': _last_updated(x),
                 'RATING': self._rating(x),
                 'INSTALLS': self._installs(x),
-                'DESCRIPTION': x['shortDescription']
+                'DESCRIPTION': _description(x),
             } for x in search_results
         ]
 
@@ -208,7 +230,7 @@ class Marketplace():
 
         shell_height, shell_width = shell_dimensions()
         column_widths = [
-            36,     # extension name
+            40,     # extension name
             7,      # version
             11,     # last update
             6,      # rating
@@ -223,6 +245,7 @@ class Marketplace():
         line_format_string = '%-*s  %*s  %*s  %*s  %*s   %-.*s'
 
         # Print the headers
+        print('')
         print(line_format_string % tuple([
             item for list in padded_headers for item in list]))
 
@@ -243,20 +266,21 @@ class Marketplace():
         if not ex:
             return self._show_no_results()
 
-        tags = ', '.join(list(filter(
-            lambda t: not t.startswith('__'), ex['tags'])))
+        def _tags(x):
+            return ', '.join(list(filter(
+                lambda t: not t.startswith('__'), x['tags'])))
 
         output = '''
-        {:25} {:25}
-        {:25} {:25}
-        {:25} {:25}
-        {:25} {:25}
+        {:30} {:30}
+        {:30} {:30}
+        {:30} {:30}
+        {:30} {:25}
 
-        {:50}
-        {:50}
+        {:60}
+        {:60}
 
-        {:50}
-        {:50}
+        {:60}
+        {:60}
 
         {}
         '''.format(
@@ -271,14 +295,20 @@ class Marketplace():
             'Required VSCode Version: %s' % self._engine(ex),
             'Extension Dependencies: %s' % self._dependencies(ex),
             'Categories: %s' % ', '.join(ex['categories']),
-            'Tags: %s' % tags,
+            'Tags: %s' % _tags(ex),
             ex['shortDescription']
         )
 
         print(dedent(output))
 
 
-    def search_extensions(self, search_text, page_size=25, flags=[]):
+    def search_extensions(
+        self,
+        search_text,
+        page_size=15,
+        flags=[],
+        **kwargs,
+    ):
         """
         Gets a list of search results from the VSCode Marketplace.
 
@@ -303,10 +333,18 @@ class Marketplace():
             },
         ]
 
+        # Add additional filters to the criteria based on arguments
+        for category in kwargs.get('categories', []):
+            criteria.append({
+                'filterType': ExtensionQueryFilterType.Category,
+                'value': category,
+            })
+
         extensions = self.extension_query(
             criteria=criteria,
             flags=flags or self.default_flags,
-            page_size=page_size
+            page_size=page_size,
+            sort_by=14,
         )
 
         # format the search results

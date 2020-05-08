@@ -1,11 +1,8 @@
 from __future__ import print_function, absolute_import
-
 from fabric import Connection
 from getpass import getpass
+from pyvsc._containers import ConnectionParts, AttributeDict
 import logging
-
-from pyvsc._util import AttributeDict
-from pyvsc._containers import ConnectionParts
 
 
 _LOGGER = logging.getLogger(__name__)

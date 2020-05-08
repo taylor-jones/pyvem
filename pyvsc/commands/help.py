@@ -51,16 +51,12 @@ class HelpCommand(Command):
     def run(self, *args, **kwargs):
         """
         Implements the `help` commands functionality.
-
-        Arguments:
-            args {str} -- The name of the command to show help for
-            parser {configargparse.ArgParser} -- ArgParser instance
         """
         # If the `help` command didn't get any arguments, just show the
         # default vem help screen and then exit.
-        args = Command.options.args
+        args = Command.main_options.args
         if not args:
-            Command.parser.print_help()
+            Command.main_parser.print_help()
             sys.exit(1)
 
         # Otherwise, parse the command name.

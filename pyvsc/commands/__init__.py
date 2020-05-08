@@ -35,22 +35,25 @@ def get_command_map():
     Returns:
         dict -- A flattened, 1D dict of all names and aliases.
     """
-    mapped = {}
+    mapped = dict()
+    commands_and_keys = set()
     
     def map_aliases(obj):
         for x in obj.aliases:
             mapped[x] = obj.name
+            commands_and_keys.add(x)
     
     for c in _COMMAND_NAMES:
         obj = getattr(modules[__name__], '%s_command' % c)
         map_aliases(obj)
 
-    return mapped
+    return mapped, commands_and_keys
 
 
 
 _COMMAND_NAMES = sorted(get_command_list())
-_COMMAND_MAP = get_command_map()
+_COMMAND_MAP, _COMMAND_NAMES_AND_ALIASES = get_command_map()
+
 
 
 def resolved_command(command):

@@ -33,7 +33,7 @@ class InfoCommand(Command):
         super().__init__(name, _HELP, aliases=aliases)
 
     def run(self, *args, **kwargs):
-        args = Command.options.args
+        args = Command.main_options.args
         arg_count = len(args)
         
         if arg_count == 1:
