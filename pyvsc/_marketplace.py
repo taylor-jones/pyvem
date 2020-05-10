@@ -2,11 +2,11 @@ from __future__ import print_function, absolute_import
 
 import json
 import re
+import logging
 
 from textwrap import dedent
 from datetime import datetime
 from functools import reduce
-from rich.console import Console
 
 from pyvsc._curler import CurledRequest
 from pyvsc._models import (
@@ -28,8 +28,9 @@ _MAERKETPLACE_DEFAULT_SEARCH_FLAGS = [
     ExtensionQueryFlags.IncludeLatestVersionOnly,
 ]
 
+_LOGGER = logging.getLogger(__name__)
 _curled = CurledRequest()
-_console = Console()
+
 
 class Marketplace():
     def __init__(self, tunnel=None):
@@ -109,7 +110,7 @@ class Marketplace():
                 return parsed['message']
         else:
             # check stderr
-            print(result.stderr)
+            _LOGGER.error(result.stderr)
             return []
 
 
@@ -286,7 +287,8 @@ class Marketplace():
         if not ex:
             return self._show_no_results()
         elif isinstance(ex, str):
-            return _console.print('[red]{text}[/red]'.format(text=ex))
+            _LOGGER.error(ex)
+            return
 
         def _tags(x):
             return ', '.join(list(filter(

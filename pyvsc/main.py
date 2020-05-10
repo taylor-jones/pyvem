@@ -24,7 +24,6 @@ from pyvsc._command import Command
 from pyvsc._exceptions import raise_argument_error
 from pyvsc._config import _PROG, rich_theme
 from pyvsc._containers import parsed_connection_parts
-from pyvsc._colored import red
 
 _console = Console(theme=rich_theme)
 _RICH_FORMAT = "%(message)s"
@@ -35,6 +34,8 @@ logging.basicConfig(
     datefmt="[%X] ",
     handlers=[RichHandler(console=_console)]
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def create_main_parser():

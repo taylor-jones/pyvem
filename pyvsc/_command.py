@@ -19,7 +19,7 @@ class Command(object):
     """
     console = Console(theme=rich_theme)
     tunnel = Tunnel()
-    log = logging.getLogger('rich')
+    log = logging.getLogger(__name__)
     marketplace = None
     main_parser = None
     main_options = None
