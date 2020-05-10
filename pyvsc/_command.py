@@ -3,7 +3,6 @@ from textwrap import dedent
 
 import logging
 from rich.console import Console
-from rich.logging import RichHandler
 from rich.traceback import install as install_rich_traceback
 
 from pyvsc._tunnel import Tunnel
@@ -11,8 +10,6 @@ from pyvsc._marketplace import Marketplace
 from pyvsc._help import Help
 from pyvsc._config import _PROG, rich_theme
 
-
-_LOGGER = logging.getLogger('rich')
 # install_rich_traceback()
 
 
@@ -22,7 +19,7 @@ class Command(object):
     """
     console = Console(theme=rich_theme)
     tunnel = Tunnel()
-    log = _LOGGER
+    log = logging.getLogger('rich')
     marketplace = None
     main_parser = None
     main_options = None

@@ -93,6 +93,7 @@ class SearchCommand(Command):
         parser.add_argument(
             '--sort-by',
             default='relevance',
+            metavar='COLUMN',
             type=str,
             help='The column to sort the search results by.'
         )
@@ -100,6 +101,7 @@ class SearchCommand(Command):
         parser.add_argument(
             '--count',
             default=15,
+            metavar='INT',
             type=int,
             help='The max number of search results to return.'
         )
@@ -129,47 +131,32 @@ class SearchCommand(Command):
         if args.query:
             # build the query string
             query_string = ' '.join(args.query)
-            print(args)
-            print(query_string)
             sort_name, sort_num = self._get_sort_query(args.sort_by)
 
             if sort_num is None:
-                # If we couldn't reasonably fuzzy-match a sort column,
-                # log that warning to the console and use the default sort
-                # column as a fall-back.
-                sorted_sort_options = sorted(
-                    list(ExtensionQuerySortByTypes.keys()))
+                # If we couldn't reasonably fuzzy-match a sort column, log that
+                # warning to the console and use the default sort column.
+                sorted_sort_options = \
+                    sorted(list(ExtensionQuerySortByTypes.keys()))
 
-                self.log.warning(
-                    '"{}" did not match a known sort column.'.format(
-                        args.sort_by))
-
-                # self.console.print(
-                #     '[error]"{}" did not match a known sort column.[/]\n' \
-                #         ''.format(args.sort_by),
-                #     '[info]Available sort columns:[/]',
-                #     ', '.join(sorted_sort_options),
-                #     sep='\n',
-                #     end='\n\n',
-                # )
+                self.log.warning('"{}" did not match a known sort column.' \
+                    ''.format(args.sort_by))
+                self.log.warn('Available sort columns:\n{}\n\n' \
+                    ''.format(', '.join(sorted_sort_options)))
 
                 sort_by = _DEFAULT_SORT_BY_ARGUMENT
             else:
-                self.log.debug('Sorting by "%s"' % sort_name)
+                self.log.debug('Sorting by "{}"'.format(sort_name))
                 sort_by = sort_num
 
-            # make sure there's a tunnel connection
-            Command.tunnel.connect()
-
             # send the query to the marketplace
+            Command.tunnel.connect()
             Command.marketplace.search_extensions(
-                query_string,
-                sort_by=sort_by
-            )
-        else:
-            print(red('The "search" command expects a query.'))
-            parser.print_usage()
+                query_string, sort_by=sort_by, page_size=args.count)
 
+        else:
+            self.log.error('The "search" command expects a query.')
+            parser.print_usage()
 
 
 search_command = SearchCommand(

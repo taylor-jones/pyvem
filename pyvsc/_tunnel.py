@@ -3,7 +3,6 @@ import logging
 
 from fabric import Connection
 from getpass import getpass
-from rich.logging import RichHandler
 from pyvsc._containers import ConnectionParts, AttributeDict
 
 
@@ -171,4 +170,3 @@ class Tunnel:
             _LOGGER.debug('Closed ssh tunnel connection.')
         except Exception as e:
             pass
-            _LOGGER.debug('No ssh tunnel exists.')

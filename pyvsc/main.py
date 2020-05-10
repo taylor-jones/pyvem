@@ -9,6 +9,7 @@ import logging
 
 from fuzzywuzzy import process
 from rich.console import Console
+from rich.logging import RichHandler
 
 from pyvsc._tunnel import Tunnel
 from pyvsc._util import iso_now, resolved_path
@@ -25,8 +26,15 @@ from pyvsc._config import _PROG, rich_theme
 from pyvsc._containers import parsed_connection_parts
 from pyvsc._colored import red
 
-
 _console = Console(theme=rich_theme)
+_RICH_FORMAT = "%(message)s"
+
+logging.basicConfig(
+    level="INFO",  # TODO: Make dynamic
+    format=_RICH_FORMAT, 
+    datefmt="[%X] ",
+    handlers=[RichHandler(console=_console)]
+)
 
 
 def create_main_parser():
