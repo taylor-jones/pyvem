@@ -6,29 +6,34 @@ import re
 from textwrap import dedent
 from datetime import datetime
 from functools import reduce
-
+from rich.console import Console
 
 from pyvsc._curler import CurledRequest
-from pyvsc._models import ExtensionQueryFilterType, ExtensionQueryFlags
-from pyvsc._util import dict_from_list_key
-from pyvsc._util import human_number_format
-from pyvsc._util import shell_dimensions
+from pyvsc._models import (
+    ExtensionQueryFilterType,
+    ExtensionQueryFlags,
+    ExtensionQuerySortByTypes,
+)
+from pyvsc._util import (
+    dict_from_list_key,
+    human_number_format,
+    shell_dimensions,
+)
 
 
 _MARKETPLACE_BASE_URL = 'https://marketplace.visualstudio.com'
 _MARKETPLACE_API_VERSION = '6.0-preview.1'
+_MAERKETPLACE_DEFAULT_SEARCH_FLAGS = [
+    ExtensionQueryFlags.AllAttributes,
+    ExtensionQueryFlags.IncludeLatestVersionOnly,
+]
 
 _curled = CurledRequest()
+_console = Console()
 
 class Marketplace():
     def __init__(self, tunnel=None):
         self.tunnel = tunnel
-        self.base_url = _MARKETPLACE_BASE_URL
-        self.api_version = _MARKETPLACE_API_VERSION
-        self.default_flags = [
-            ExtensionQueryFlags.AllAttributes,
-            ExtensionQueryFlags.IncludeLatestVersionOnly,
-        ]
 
 
     def _post(self, endpoint, data={}, headers={}, **kwargs):
@@ -45,18 +50,18 @@ class Marketplace():
         Returns:
             Requests.response
         """
-        url = '%s/_apis/public%s' % (self.base_url, endpoint)
+        url = '%s/_apis/public%s' % (_MARKETPLACE_BASE_URL, endpoint)
         curl_request = _curled.post(url, data=data, headers=headers)
         return self.tunnel.run(curl_request)
 
 
-    def extension_query(
+    def _extension_query(
         self,
         page_number=1,
         page_size=1,
         flags=[],
         criteria=[],
-        sort_by=0,
+        sort_by=ExtensionQuerySortByTypes.Relevance,
     ):
         """
         Query the marketplace for extensions
@@ -81,7 +86,8 @@ class Marketplace():
         }
 
         headers = {
-            'Accept': 'application/json;api-version=%s' % (self.api_version),
+            'Accept': 'application/json;api-version=%s' % \
+                _MARKETPLACE_API_VERSION,
             'Accept-Encoding': 'gzip',
             'Content-Type': 'application/json',
         }
@@ -95,9 +101,15 @@ class Marketplace():
 
         if result.exited == 0:
             parsed = json.loads(result.stdout)
-            return parsed['results'][0]['extensions']
-
-        return []
+            
+            if isinstance(parsed, dict):
+                return parsed['message']
+            elif isinstance(parsed, list):
+                return parsed['results'][0]['extensions']
+        else:
+            # check stderr
+            print(result.stderr)
+            return []
 
 
     def get_extension(self, unique_id, flags=[]):
@@ -125,9 +137,17 @@ class Marketplace():
             },
         ]
 
-        extensions = self.extension_query(
-            criteria=criteria, flags=flags or self.default_flags)
-        return extensions[0] if extensions else None
+        extensions = self._extension_query(
+            criteria=criteria,
+            flags=flags or _MAERKETPLACE_DEFAULT_SEARCH_FLAGS
+        )
+
+        if isinstance(extensions, list):
+            return extensions[0]
+        elif isinstance(extensions, str):
+            return extensions
+
+        return None
 
 
     def _rating(self, x):
@@ -143,7 +163,6 @@ class Marketplace():
         )
 
         return count['value'] if count else 0
-
 
 
     def _engine(self, x):
@@ -265,10 +284,14 @@ class Marketplace():
         ex = self.get_extension(unique_id, flags=flags)
         if not ex:
             return self._show_no_results()
+        elif isinstance(ex, str):
+            return _console.print('[red]{text}[/red]'.format(text=ex))
 
         def _tags(x):
             return ', '.join(list(filter(
                 lambda t: not t.startswith('__'), x['tags'])))
+
+        # TODO: Implement a rich Table instance here
 
         output = '''
         {:30} {:30}
@@ -306,6 +329,7 @@ class Marketplace():
         self,
         search_text,
         page_size=15,
+        sort_by=ExtensionQuerySortByTypes.Relevance,
         flags=[],
         **kwargs,
     ):
@@ -340,11 +364,11 @@ class Marketplace():
                 'value': category,
             })
 
-        extensions = self.extension_query(
+        extensions = self._extension_query(
             criteria=criteria,
-            flags=flags or self.default_flags,
+            flags=flags or _MAERKETPLACE_DEFAULT_SEARCH_FLAGS,
             page_size=page_size,
-            sort_by=14,
+            sort_by=sort_by,
         )
 
         # format the search results

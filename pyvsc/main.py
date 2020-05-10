@@ -8,6 +8,8 @@ import configargparse
 import logging
 
 from fuzzywuzzy import process
+from rich.console import Console
+
 from pyvsc._tunnel import Tunnel
 from pyvsc._util import iso_now, resolved_path
 from pyvsc._containers import AttributeDict
@@ -19,10 +21,12 @@ from pyvsc.commands import get_command_obj
 
 from pyvsc._command import Command
 from pyvsc._exceptions import raise_argument_error
-from pyvsc._config import _PROG
+from pyvsc._config import _PROG, rich_theme
 from pyvsc._containers import parsed_connection_parts
-from pyvsc._colored import red, cyan
+from pyvsc._colored import red
 
+
+_console = Console(theme=rich_theme)
 
 
 def create_main_parser():
@@ -179,7 +183,8 @@ def main():
     elif args.help:
         parser.print_help()
     else:
-        print(red('"%s" is not a valid %s command.\n' % (args.command, _PROG)))
+        _console.print('[error]"{}" is not a valid {} command[/].\n'.format(
+            args.command, _PROG))
 
         # Check for fuzzy-ish matches. Limit to 50% matches or greater.
         similar = [
@@ -195,6 +200,7 @@ def main():
                 % ', '.join(similar))
 
         parser.print_usage()
+        print('')
 
 
 if __name__ == "__main__":

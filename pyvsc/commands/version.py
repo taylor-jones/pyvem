@@ -2,27 +2,19 @@ from __future__ import print_function, absolute_import
 import sys
 from pyvsc._command import Command
 from pyvsc._config import _PROG, _VERSION
-from pyvsc._colored import red, cyan
+from pyvsc._help import Help
 
-
-_HELP = """
-{NAME}
-    version -- shows the {prog} version
-
-{SYNOPSIS}
-    {prog} -V
-    {prog} --version
-
-    {aliases}: {prog} version
-
-{DESCRIPTION}
-    This command will print the current {prog} version to stdout.
-""".format(
-    NAME=red('NAME'),
-    SYNOPSIS=red('SYNOPSIS'),
-    DESCRIPTION=red('DESCRIPTION'),
-    prog=_PROG,
-    aliases=cyan('aliases'),
+_HELP = Help(
+    name='version',
+    brief='shows the {prog} version'.format(prog=_PROG),
+    synopsis='' \
+        '{prog} -V\n' \
+        '{prog} --version\n\n' \
+        '[h2]aliases[/]: {prog} version' \
+        ''.format(prog=_PROG),
+    description='' \
+        'This command will print the current {prog} version to stdout.' \
+        ''.format(prog=_PROG)
 )
 
 

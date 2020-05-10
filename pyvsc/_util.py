@@ -139,6 +139,24 @@ def shell_dimensions():
     return int(rows), int(columns)
 
 
+def less(content):
+    """
+    Invokes a `less` subprocess, passing it content and receiving user
+    stdin on the less process.
+
+    Arguments:
+        content {str} -- The content to display
+    """
+    from subprocess import Popen, PIPE
+    process = Popen(["less"], stdin=PIPE)
+
+    try:
+        process.stdin.write(content)
+        process.communicate()
+    except TypeError:
+        less(content.encode())
+
+
 def iso_now(include_microseconds=False):
     """
     Returns an ISO timestamp of the current local time.

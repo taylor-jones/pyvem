@@ -1,58 +1,40 @@
 from __future__ import print_function, absolute_import
 from pyvsc._command import Command
 from pyvsc._config import _PROG
-from pyvsc._colored import red, cyan
+from pyvsc._help import Help
 
 
-_HELP = """
-{NAME}
-    config -- Manage the {prog} configuration file.
-
-{SYNOPSIS}
-    {prog} config set <key> <value>
-    {prog} config get <key>
-    {prog} config delete <key>
-    {prog} config list
-    {prog} config edit
-
-    {aliases}: {prog} c
-
-{DESCRIPTION}
-    This command provides a means of managing {prog}'s .{prog}rc file.
-    This allows for setting, getting, or updating the contents within
-    the .{prog}rc.
-
-    {SUBCOMMANDS}
-        Config supports the following sub-commands:
-        
-        {SET_CMD}
-            Sets the config key to the value. If no value is provided, 
-            then it sets the value to "true".
-
-        {GET_CMD}
-            Prints the config value to stdout.
-        
-        {LIST_CMD}
-            Prints all of the config settings to stdout.
-        
-        {DELETE_CMD}
-            Deletes the key from the configuration file.
-        
-        {EDIT_CMD}
-            Opens the config file in an editor.
-
-""".format(
-    NAME=red('NAME'),
-    SYNOPSIS=red('SYNOPSIS'),
-    DESCRIPTION=red('DESCRIPTION'),
-    prog=_PROG,
-    aliases=cyan('aliases'),
-    SUBCOMMANDS=cyan('Sub-commands'),
-    SET_CMD=red('set'),
-    GET_CMD=red('get'),
-    LIST_CMD=red('list'),
-    DELETE_CMD=red('delete'),
-    EDIT_CMD=red('edit'),
+_HELP = Help(
+    name='config',
+    brief='Manage the {prog} configuration file.'.format(prog=_PROG),
+    synopsis='' \
+        '\t{prog} config set <key> <value>\n' \
+        '\t{prog} config get <key>\n' \
+        '\t{prog} config delete <key>' \
+        '\t{prog} config list' \
+        '\t{prog} config edit' \
+        '\n\n' \
+        '\t[h2]aliases:[/h2] {prog} c'.format(prog=_PROG),
+    description='' \
+        'This command provides a means of managing {prog}\'s .{prog}rc file.' \
+        'This allows for setting, getting, or updating the contents within ' \
+        'the .{prog}rc.'.format(prog=_PROG),
+    sub_commands='Config supports the following sub-commands:' \
+        '\n\n' \
+        '[h2]set[/h2]\n' \
+            '\t[example]{prog} config set <key> <value>[/]\n' \
+            '\tSets the config key to the value.\n' \
+            '\tIf the value is omitted, it\'s set to "true".\n\n' \
+        '[h2]get[/h2]\n'
+            '\t[example]{prog} config get <key>[/]\n' \
+            '\tPrints the config key value to stdout.\n\n' \
+        '[h2]list[/h2]\n'\
+            '\t[example]{prog} config list[/]\n' \
+            '\tPrints all of the config settings to stdout.\n\n' \
+        '[h2]delete[/h2]\n' \
+            '\t[example]{prog} config delete <key>[/]\n' \
+            '\tDeletes the key from the configuration file.\n\n' \
+        ''.format(prog=_PROG)
 )
 
 
@@ -66,7 +48,6 @@ class ConfigCommand(Command):
 
     def run(self, *args, **kwargs):
         print('TODO: Implement config run()')
-
 
 
 config_command = ConfigCommand(
