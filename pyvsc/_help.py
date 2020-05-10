@@ -19,7 +19,6 @@ _DEFAULT_WRAP_WIDTH = 80
 _DEFAULT_INDENT = '    '
 _DEFAULT_PAD_SIZE = 4
 
-
 _text = Text(tab_size=4)
 _console = Console(theme=rich_theme)
 
@@ -62,10 +61,10 @@ def _rich_command_heading(text):
     Returns a rich-formatted string using a pre-defined heading style.
 
     Arguments:
-        text {[type]} -- [description]
+        text {str} -- The string to wrap in a rich heading
 
     Returns:
-        [type] -- [description]
+        str -- The heading-wrapped text.
     """
     return _rich_themed(text, 'h1')
 
@@ -191,12 +190,7 @@ class Help(object):
         # print each of the sections we found.
         # TODO: Figure out how to capture/supress this, so I can use less
         # for paging the output.
-        _console.print(
-            *parts,
-            sep='\n',
-            end='\n',
-            highlight=False
-        )
+        _console.print(*parts, sep='\n', end='\n', highlight=False)
         # output = _console.export_text(clear=False, styles=True)
         # less(output)
 
@@ -211,8 +205,7 @@ class Help(object):
         heading = _text.from_markup(_rich_command_heading('\nNAME'))
         name_and_brief = '{name}{brief}'.format(
             name=self._name,
-            brief=' -- %s' % self._brief if self._brief else ''
-        )
+            brief=' -- %s' % self._brief if self._brief else '')
         body = _wrap(name_and_brief)
         return heading, body
 
@@ -226,9 +219,7 @@ class Help(object):
 
     @property
     def sub_commands(self):
-        return self._generate_from_property(
-            '_sub_commands', titlecase=True
-        )
+        return self._generate_from_property('_sub_commands', titlecase=True)
 
     @property
     def options(self):
