@@ -129,11 +129,11 @@ class SearchCommand(Command):
         if args.query:
             # build the query string
             query_string = ' '.join(args.query)
-            # print(args)
-            # print(query_string)
+            print(args)
+            print(query_string)
             sort_name, sort_num = self._get_sort_query(args.sort_by)
 
-            if not sort_num:
+            if sort_num is None:
                 # If we couldn't reasonably fuzzy-match a sort column,
                 # log that warning to the console and use the default sort
                 # column as a fall-back.
@@ -155,7 +155,7 @@ class SearchCommand(Command):
 
                 sort_by = _DEFAULT_SORT_BY_ARGUMENT
             else:
-                print('Sorting by "%s"' % sort_name)
+                self.log.debug('Sorting by "%s"' % sort_name)
                 sort_by = sort_num
 
             # make sure there's a tunnel connection

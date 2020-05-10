@@ -101,11 +101,12 @@ class Marketplace():
 
         if result.exited == 0:
             parsed = json.loads(result.stdout)
-            
-            if isinstance(parsed, dict):
+            _TARGET_PROPERTY = 'results'
+
+            if _TARGET_PROPERTY in parsed.keys():
+                return parsed[_TARGET_PROPERTY][0]['extensions']
+            else:
                 return parsed['message']
-            elif isinstance(parsed, list):
-                return parsed['results'][0]['extensions']
         else:
             # check stderr
             print(result.stderr)
