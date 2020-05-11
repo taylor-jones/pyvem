@@ -1,4 +1,6 @@
 from __future__ import print_function, absolute_import
+
+import sys
 import logging
 
 from fabric import Connection
@@ -94,9 +96,24 @@ class Tunnel:
             The current implementation assumes that the username, port,
             and password are the same for the ssh host and the gateway.
         """
-        password = ssh_host.password or getpass(
-            '%s@%s password: ' % (ssh_host.username, ssh_host.hostname))
-        self.ssh_host.password = password
+        password = ssh_host.password
+
+        if not password:
+            prompt = '{}@{} password: '.format(
+                ssh_host.username, ssh_host.hostname)
+
+            # get a password from the user
+            try:
+                if sys.stdin.isatty():
+                    password = getpass(prompt=prompt, stream=sys.stderr)
+                else:
+                    print(prompt)
+                    password = sys.stdin.readline().rstrip()
+                self.ssh_host.password = password
+
+            except KeyboardInterrupt:
+                _LOGGER.warning('Exiting.')
+                sys.exit(1)
 
         try:
             # establish the ssh connection
