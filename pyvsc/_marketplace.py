@@ -8,6 +8,10 @@ from textwrap import dedent
 from datetime import datetime
 from functools import reduce
 
+from rich.console import Console
+from rich.table import Table
+from rich import box
+
 from pyvsc._curler import CurledRequest
 from pyvsc._models import (
     ExtensionQueryFilterType,
@@ -30,7 +34,7 @@ _MAERKETPLACE_DEFAULT_SEARCH_FLAGS = [
 
 _LOGGER = logging.getLogger(__name__)
 _curled = CurledRequest()
-
+_console = Console()
 
 class Marketplace():
     def __init__(self, tunnel=None):
@@ -144,12 +148,8 @@ class Marketplace():
             flags=flags or _MAERKETPLACE_DEFAULT_SEARCH_FLAGS
         )
 
-        if isinstance(extensions, list):
-            return extensions[0]
-        elif isinstance(extensions, str):
-            return extensions
+        return extensions[0] if isinstance(extensions, list) else extensions
 
-        return None
 
 
     def _rating(self, x):
@@ -248,34 +248,19 @@ class Marketplace():
         """
         if not search_results:
             return self._show_no_results()
+    
+        # Print the results using a rich table
+        table = Table(box=box.SQUARE)
+        table.add_column('Extension ID', justify='left', no_wrap=True)
+        table.add_column('Version', justify='right', no_wrap=True)
+        table.add_column('Last Update', justify='right', no_wrap=True)
+        table.add_column('Rating', justify='right', no_wrap=True)
+        table.add_column('Installs', justify='right', no_wrap=True)
+        table.add_column('Description', justify='left', no_wrap=True)
 
-        shell_height, shell_width = shell_dimensions()
-        column_widths = [
-            40,     # extension name
-            7,      # version
-            11,     # last update
-            6,      # rating
-            8,      # install count
-            # description width is determined by remaining witdth
-        ]
-
-        description_width = shell_width - sum(column_widths) - 11
-        column_widths.append(description_width)
-        headers = search_results[0].keys()
-        padded_headers = zip(column_widths * len(headers), headers)
-        line_format_string = '%-*s  %*s  %*s  %*s  %*s   %-.*s'
-
-        # Print the headers
-        print('')
-        print(line_format_string % tuple([
-            item for list in padded_headers for item in list]))
-
-        # Print the results
         for result in search_results:
-            values = result.values()
-            padded_values = zip(column_widths * len(values), values)
-            print(line_format_string % tuple([
-                result for list in padded_values for result in list]))
+            table.add_row(*result.values())
+        _console.print(table)
 
 
     def get_extension_info(
@@ -293,8 +278,6 @@ class Marketplace():
         def _tags(x):
             return ', '.join(list(filter(
                 lambda t: not t.startswith('__'), x['tags'])))
-
-        # TODO: Implement a rich Table instance here
 
         output = '''
         {:30} {:30}
