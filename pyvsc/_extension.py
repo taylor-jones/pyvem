@@ -1,20 +1,19 @@
 from __future__ import print_function
 from __future__ import absolute_import
 
-import re
-import os
 import logging
-import requests
+import json
 
 from pyvsc._util import dict_from_list_key
 from pyvsc._containers import AttributeDict
 from pyvsc._machine import platform_query
 from pyvsc._marketplace import Marketplace
+from pyvsc._curler import CurledRequest
 
 
 _GITHUB_API_ROOT_URI = 'https://api.github.com'
 _GITHUB_ROOT_URI = 'https://github.com'
-_MARKETPLACE = Marketplace()
+
 
 # NOTE: Active issue for better handling offline binaries installation
 # https://github.com/microsoft/vscode-cpptools/issues/5290
@@ -36,6 +35,8 @@ _NON_MARKETPLACE_EXTENSIONS = AttributeDict({
     })
 })
 
+_LOGGER = logging.getLogger(__name__)
+_curled = CurledRequest()
 
 class ExtensionSourceTypes:
     Undefined = 0
@@ -47,23 +48,32 @@ class Extension():
     """
     Extension base class
     """
-    def __init__(self, source_type=ExtensionSourceTypes.Undefined, **kwargs):
+    def __init__(
+        self,
+        source_type=ExtensionSourceTypes.Undefined,
+        tunnel=None,
+        **kwargs
+    ):
         self.source_type = source_type
+        self.tunnel = tunnel
         self.unique_id = kwargs.get('unique_id')
         self.download_url = kwargs.get('download_url')
         self.download_from_marketplace = \
             not self.unique_id in _NON_MARKETPLACE_EXTENSIONS.keys()
 
-
     def download(self, directory):
         ext_name = self.unique_id
         if hasattr(self, 'version'):
-            ext_name = '%s-%s' % (ext_name, self.version)
+            ext_name = '{}-{}'.format(ext_name, self.version)
 
-        res = requests.get(self.download_url, allow_redirects=True)
-        with open('%s/%s.vsix' % (directory, ext_name), 'wb') as f:
-            f.write(res.content)
-            f.close()
+        curled_request = _curled.get(
+            self.download_url, output='{}/{}.vsix'.format(directory, ext_name))
+        response = self.tunnel.run(curled_request)
+
+        if response.exited == 0:
+            _LOGGER.info(response.stdout)
+        else:
+            _LOGGER.error(response.stderr)
 
 
 
@@ -80,8 +90,9 @@ class GithubExtension(Extension):
         release='latest',
         prerelease=False,
         unique_id=None,
+        tunnel=None,
     ):
-
+        self.tunnel = tunnel
         self.unique_id = unique_id
         self.owner = owner
         self.repo = repo
@@ -94,7 +105,8 @@ class GithubExtension(Extension):
         super().__init__(
             source_type=ExtensionSourceTypes.GitHub,
             unique_id=self.unique_id,
-            download_url=self.download_url
+            download_url=self.download_url,
+            tunnel=self.tunnel,
         )
 
 
@@ -125,8 +137,8 @@ class GithubExtension(Extension):
             # By default, GitHub's API only shows non-prerelease assets at the
             # 'latest' endpoint, so if we don't allow pre-releases, we can just
             # append 'latest' to our API URL and use the resulting asset.
-            query_endpoint = '/repos/%s/%s/releases/%s?per_page=1' % \
-                (self.owner, self.repo, self.release)
+            query_endpoint = '/repos/{}/{}/releases/{}?per_page=1'.format(
+                self.owner, self.repo, self.release)
         else:
             # If we DO want to allow pre-release assets, we won't add 'latest'
             # to the end of our query URL, which will allow a prerelease asset
@@ -135,16 +147,21 @@ class GithubExtension(Extension):
             #
             # Note that this will still fetch a non-prerelease/stable asset if
             # the latest asset is non-prerelsease/stable.
-            query_endpoint = '/repos/%s/%s/releases?per_page=1' % \
-                (self.owner, self.repo)
+            query_endpoint = '/repos/{}/{}/releases?per_page=1'.format(
+                self.owner, self.repo)
 
-        query_url = '%s%s' % (_GITHUB_API_ROOT_URI, query_endpoint)
-        request = requests.get(query_url)
-        request.raise_for_status()
-        response = request.json()
-        response_obj = response[0] if self.prerelease else response
-        asset_list = response_obj['assets']
-        return self._get_download_url_from_asset_list(asset_list)
+        query_url = '{}{}'.format(_GITHUB_API_ROOT_URI, query_endpoint)
+        curled_request = _curled.get(query_url)
+        response = self.tunnel.run(curled_request)
+
+        if response.exited == 0:
+            response = json.loads(response.stdout)
+            response_obj = response[0] if self.prerelease else response
+            asset_list = response_obj['assets']
+            return self._get_download_url_from_asset_list(asset_list)
+        else:
+            _LOGGER.error(response.stderr)
+            return None
 
 
     def _from_args(self):
@@ -154,9 +171,9 @@ class GithubExtension(Extension):
         Returns:
             str -- The direct url from which the extension can be downlaoded
         """
-        query_endpoint = '/%s/%s/releases/download/%s/%s' % \
-            (self.owner, self.repo, self.release, self.asset_name)
-        return '%s%s' % (_GITHUB_ROOT_URI, query_endpoint)
+        query_endpoint = '/{}/{}/releases/download/{}/{}'.format(
+            self.owner, self.repo, self.release, self.asset_name)
+        return '{}{}'.format(_GITHUB_ROOT_URI, query_endpoint)
 
 
 
@@ -165,14 +182,16 @@ class MarketplaceExtension(Extension):
     Marketplace extension class that inherits from Extension base class, but
     represents an extensions which has a VSCode Marketplace download source.
     """
-    def __init__(self, parsed_marketplace_response):
+    def __init__(self, parsed_marketplace_response, tunnel=None):
         p = parsed_marketplace_response
 
+        self.tunnel = tunnel
         self.extension_id = p['extensionId']
         self.extension_name = p['extensionName']
         self.display_name = p['displayName']
         self.publisher_name = p['publisher']['publisherName']
-        self.unique_id = '%s.%s' % (self.publisher_name, self.extension_name)
+        self.unique_id = '{}.{}'.format(
+            self.publisher_name, self.extension_name)
         self.description = p['shortDescription']
         self.stats = p['statistics']
 
@@ -195,7 +214,8 @@ class MarketplaceExtension(Extension):
         super().__init__(
             source_type=ExtensionSourceTypes.Marketplace,
             unique_id=self.unique_id,
-            download_url=self.uri.vsix_package
+            download_url=self.uri.vsix_package,
+            tunnel=self.tunnel
         )
 
     # process extension attributes from the marketplace response
@@ -232,29 +252,35 @@ class MarketplaceExtension(Extension):
 
 
 
-def get_extension(unique_id, release='latest'):
+def get_extension(unique_id, tunnel=None, release='latest'):
     """
     Creates an Extension instance, using either the VSCode Marketplace or
     GitHub, depending on the appropriate extension source.
 
     Arguments:
         unique_id {str} -- The unique id of the extension, which includes the
-        publisher and package in the format of {publisher}.{package}
+            publisher and package in the format of {publisher}.{package}
+        tunnel {Tunnel} -- SSH Tunnel instance
+        release {str} -- The desired release version (default: 'latest')
 
     Returns:
         Extension -- An instance of an Extension, either a GithubExtension or
         a MarketplaceExtension
     """
     e = _NON_MARKETPLACE_EXTENSIONS.get(unique_id)
+
     if e is None:
-        return MarketplaceExtension(_MARKETPLACE.get_extension(unique_id))
+        return MarketplaceExtension(
+            Marketplace(tunnel=tunnel).get_extension(unique_id),
+            tunnel=tunnel)
 
     return GithubExtension(
         owner=e.owner,
         repo=e.repo,
         asset_name=e.asset_name,
         unique_id=unique_id,
-        release=release
+        release=release,
+        tunnel=tunnel,
     )
 
 

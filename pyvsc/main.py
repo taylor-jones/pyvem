@@ -29,7 +29,7 @@ _console = Console(theme=rich_theme)
 _RICH_FORMAT = "%(message)s"
 
 logging.basicConfig(
-    level="INFO",  # TODO: Make dynamic
+    level="NOTSET",  # TODO: Make dynamic
     format=_RICH_FORMAT, 
     datefmt="[%X] ",
     handlers=[RichHandler(console=_console)]

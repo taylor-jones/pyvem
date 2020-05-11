@@ -2,28 +2,26 @@ from __future__ import print_function
 from distutils.spawn import find_executable
 from getpass import getpass
 
-import os
 import sys
 import unittest
-import requests
 
 from pyvsc._marketplace import Marketplace
 from pyvsc._containers import ConnectionParts
 from pyvsc._tunnel import Tunnel
-from pyvsc.tests.test_util import should_skip_remote_testing
+from pyvsc.tests.test_util import (
+    should_skip_remote_testing,
+    get_dummy_tunnel_connection,
+)
 
-
-_ssh_host = ConnectionParts(hostname='centos', password='pass')
-_ssh_gateway = ConnectionParts(hostname='centos2', password='pass')
-_tunnel = Tunnel(_ssh_host, _ssh_gateway, True)
-
+_tunnel = get_dummy_tunnel_connection(True)
+_KNOWN_MARKETPLACE_EXTENSION_UID = 'twxs.cmake'
+_KNOWN_MARKETPLACE_SEARCH_TEXT = 'js'
 
 @unittest.skipIf(*should_skip_remote_testing())
 class TestMarketplace(unittest.TestCase):
     def test_marketplace_should_be_able_to_get_exact_extension(self):
         m = Marketplace(tunnel=_tunnel)
-        # use a known [publisher].[package] name
-        uid = 'twxs.cmake'
+        uid = _KNOWN_MARKETPLACE_EXTENSION_UID
         response = m.get_extension(uid)
 
         self.assertIsInstance(response, dict)
@@ -31,8 +29,7 @@ class TestMarketplace(unittest.TestCase):
 
     def test_marketplace_should_be_able_search_extensions(self):
         m = Marketplace(tunnel=_tunnel)
-        # use a generic search text that is known to have a bunch of results
-        search_text = 'js'
+        search_text = _KNOWN_MARKETPLACE_SEARCH_TEXT
         response_count = 10
         response = m.search_extensions(search_text, response_count)
 

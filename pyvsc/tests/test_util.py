@@ -1,6 +1,9 @@
 import requests
 from os import getenv
+
 from pyvsc._util import has_internet_connection
+from pyvsc._containers import ConnectionParts
+from pyvsc._tunnel import Tunnel
 
 
 def should_skip_remote_testing():
@@ -50,3 +53,13 @@ def github_get(url):
             raise ValueError
     except ValueError:
         return response.status_code
+
+
+def get_dummy_tunnel_connection(with_gateway=True):
+    ssh_host = ConnectionParts(hostname='centos', password='pass')
+
+    if not with_gateway:
+        return Tunnel(ssh_host, None, True)
+
+    ssh_gateway = ConnectionParts(hostname='centos2', password='pass')
+    return Tunnel(ssh_host, ssh_gateway, True)

@@ -1,3 +1,6 @@
+from builtins import int
+
+
 def get_public_attributes(obj):
     """
     Returns a dict containing only the non-underscored attributes from
@@ -134,9 +137,10 @@ def shell_dimensions():
     Returns:
         tuple(int, int)
     """
-    from os import popen
-    rows, columns = popen('stty size', 'r').read().split()
-    return int(rows), int(columns)
+    from subprocess import Popen, PIPE
+    with Popen(['stty', 'size'], stdout=PIPE, encoding='utf-8') as proc:
+        rows, columns = proc.stdout.readline().split(' ')
+        return int(rows), int(columns)
 
 
 def less(content):
