@@ -2,11 +2,8 @@ from __future__ import print_function, absolute_import
 
 import configargparse
 import logging
-import multiprocessing
 
 from fuzzywuzzy import process
-from beeprint import pp
-
 from pyvsc._command import Command
 from pyvsc._config import _PROG
 from pyvsc._help import Help
@@ -60,6 +57,11 @@ _HELP = Help(
 
 
 class InstallCommand(Command):
+    """
+    The InstallCommand class defines the "install" command. This class
+    inherits from the base Command class.
+    """
+
     def __init__(self, name, aliases=[]):
         super().__init__(name, _HELP, aliases=aliases)
 
@@ -85,7 +87,7 @@ class InstallCommand(Command):
             # code editors (that matches above the specified threshold)
             try:
                 match, _ = process.extractOne(
-                    item,
+                    query=item,
                     choices=_AVAILABLE_EDITOR_VALUES,
                     score_cutoff=_FUZZY_SORT_CONFIDENCE_THRESHOLD)
 
@@ -98,7 +100,7 @@ class InstallCommand(Command):
             except TypeError:
                 try:
                     match, _ = process.extractOne(
-                        item,
+                        query=item,
                         choices=_AVAILABLE_EDITOR_KEYS,
                         score_cutoff=_FUZZY_SORT_CONFIDENCE_THRESHOLD)
 
@@ -145,7 +147,7 @@ class InstallCommand(Command):
             of known, supported code editors. (default: [])
 
         Returns:
-            set -- A unique set of matching code editor names. 
+            set -- A unique set of matching code editor names.
         """
         targets = set()
         for target in target_arg:
@@ -153,7 +155,7 @@ class InstallCommand(Command):
             # code editors (that matches above the specified threshold)
             try:
                 match, _ = process.extractOne(
-                    target,
+                    query=target,
                     choices=_AVAILABLE_EDITOR_VALUES,
                     score_cutoff=_FUZZY_SORT_CONFIDENCE_THRESHOLD)
 
@@ -162,7 +164,7 @@ class InstallCommand(Command):
             except TypeError:
                 try:
                     match, _ = process.extractOne(
-                        target,
+                        query=target,
                         choices=_AVAILABLE_EDITOR_KEYS,
                         score_cutoff=_FUZZY_SORT_CONFIDENCE_THRESHOLD)
 
@@ -190,6 +192,7 @@ class InstallCommand(Command):
             'add_help': False,
             'prog': '{} {}'.format(_PROG, self.name)
         }
+
         parser = configargparse.ArgumentParser(**parser_kwargs)
 
         parser.add_argument(
@@ -232,39 +235,39 @@ class InstallCommand(Command):
         return parser
 
 
-    def _validate_target_editors(self, supported_editors, requested_targets):
+    def _validate_target_editors(self, system_editors, requested_targets):
         """
         Check to make sure that each of the target editors is on the PATH.
 
         Arguments:
-            supported_editors {list} -- list of SupportedEditors
+            system_editors {AttributeDict} -- dict result of get_editors()
             requested_targets {set} -- set of requested editor names.
         """
         for req in requested_targets:
-            target = supported_editors[req]
+            target = system_editors[req]
             id = target.editor_id
+
             if not target.installed:
-                _LOGGER.error('Can use destination editor "{}". It\'s '
-                              'either not installed or not on the PATH.'
-                              ''.format(id))
+                _LOGGER.error('Can use destination editor "{}". It\'s either '
+                              'not installed or not on the PATH.'.format(id))
                 requested_targets.remove(req)
         return requested_targets
 
 
-    def _install_editors(self, supported_editors, editors_to_install):
+    def _install_editors(self, system_editors, editors_to_install):
         """
         Install any requested editors. For each editor, check if it's already
         installed with the latest version.
 
         Arguments:
-            supported_editors {list} -- list of SupportedEditors
+            system_editors {AttributeDict} -- dict result of get_editors()
             editors_to_install {set} -- set of requested editor names.
         """
         remote_output = Command.main_options.remote_output_dir
         local_output = Command.main_options.output_dir
 
         for req in editors_to_install:
-            current_editor = supported_editors[req]
+            current_editor = system_editors[req]
             id = current_editor.editor_id
 
             if current_editor.can_update:
@@ -276,6 +279,17 @@ class InstallCommand(Command):
 
 
     def _install_extensions(self, system_editors, target_editors, extensions):
+        """
+        Install any requested extensions.
+
+        For each extension, download the extension, then install the extension
+        to each of the target code editors.
+
+        Arguments:
+            system_editors {AttributeDict} -- dict result of get_editors()
+            target_editors {set} -- A set of the names of target editors.
+            extensions {set} -- A set of extensions to download and install.
+        """
         remote_output = Command.main_options.remote_output_dir
         local_output = Command.main_options.output_dir
 
@@ -311,9 +325,6 @@ class InstallCommand(Command):
             extensions_to_install = None
             target_editors = None
 
-            # pp(vars(args))
-            # pp(vars(Command.main_options))
-
             # A user may request to install code editors and/or extensions.
             # Separate the editors from the extensions, so we can process them
             # differently.
@@ -340,18 +351,26 @@ class InstallCommand(Command):
             self._install_editors(system_editors, editors_to_install)
 
             # validate any target editors
-            target_editors = \
-                self._validate_target_editors(system_editors, target_editors)
+            target_editors = self._validate_target_editors(
+                system_editors,
+                target_editors
+            )
 
             # install any requested extensions
             self._install_extensions(
-                system_editors, target_editors, extensions_to_install)
+                system_editors,
+                target_editors,
+                extensions_to_install
+            )
 
         else:
             _LOGGER.error('The "install" command expects 1 or more arguments.')
             parser.print_usage()
 
 
+#
+# Create the InstallCommand instance
+#
 install_command = InstallCommand(
     name='install',
     aliases=['install', 'i', 'add']

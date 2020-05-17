@@ -70,4 +70,7 @@ class HelpCommand(Command):
                 % command_name)
 
 
+#
+# Create the HelpCommand instance
+#
 help_command = HelpCommand(name='help', aliases=['help'])

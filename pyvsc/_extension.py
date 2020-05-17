@@ -50,6 +50,7 @@ class Extension():
     """
     Extension base class
     """
+
     def __init__(
         self,
         source_type=ExtensionSourceTypes.Undefined,

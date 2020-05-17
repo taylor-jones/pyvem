@@ -7,18 +7,20 @@ from pyvsc._help import Help
 _HELP = Help(
     name='version',
     brief='shows the {prog} version'.format(prog=_PROG),
-    synopsis='' \
-        '{prog} -V\n' \
-        '{prog} --version\n\n' \
-        '[h2]aliases[/]: {prog} version' \
-        ''.format(prog=_PROG),
-    description='' \
-        'This command will print the current {prog} version to stdout.' \
-        ''.format(prog=_PROG)
+    synopsis='{prog} -V\n'
+             '{prog} --version\n\n'
+             '[h2]aliases[/]: {prog} version'
+             ''.format(prog=_PROG),
+    description='This command will print the current {prog} version to '
+                'stdout.'.format(prog=_PROG)
 )
 
 
 class VersionCommand(Command):
+    """
+    The VersionCommand class defines the "version" command. This class
+    inherits from the base Command class.
+    """
     """
     Inherits the base Command class and implements the Version
     command functionality.
@@ -34,6 +36,9 @@ class VersionCommand(Command):
         sys.exit(0)
 
 
+#
+# Create the VesionCommand instance
+#
 version_command = VersionCommand(
     name='version',
     aliases=['version'],

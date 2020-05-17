@@ -31,42 +31,44 @@ _SEARCH_CATEGORIES = [
 _HELP = Help(
     name='search',
     brief='Search the VSCode Marketplace',
-    synopsis='' \
-        '{prog} search <term>\n' \
-        '{prog} search <term> [[--sort-by [[COLUMN]]]]\n' \
-        '{prog} search <term> [[--count [[NUMBER]]]]\n\n' \
-        '[h2]aliases:[/h2] {prog} s, {prog} find\n' \
-        ''.format(prog=_PROG),
-    description='' \
-        'This command searched the VSCode Marketplace for ' \
-        'extensions matching the provided search terms. Additional search ' \
-        'control is provided by specifying sorting options and/or ' \
-        'specifying the amount of results to display.',
-    options='' \
-        '[h2]--sort-by [[COLUMN]][/h2]\n' \
-        '\t* Type: String\n' \
-        '\t* Default: Relevance' \
-        '\n\n' \
-        'Sort the search results in descending order, based on a particular ' \
-        'column value. {prog} uses fuzzy matching to check if the provided ' \
-        '[bold]--sort-by[/bold] value matches any of the known sort ' \
-        'columns.'
-        '\n\n' \
-        'Available sort columns include:\n'
-        '{sort_columns}' \
-        '\n\n' \
-        '[h2]--count [[NUMBER]][/h2]\n' \
-        '\t* Type: Integer\n' \
-        '\t* Default: 15' \
-        '\n\n' \
-        'By default, up to 15 results are returned, but this default may be ' \
-        'overriden to specify how many search results should be returned.' \
-        ''.format(prog=_PROG, sort_columns=', '.join(_AVAILABLE_SORT_COLUMNS),
-    )
+    synopsis='{prog} search <term>\n'
+             '{prog} search <term> [[--sort-by [[COLUMN]]]]\n'
+             '{prog} search <term> [[--count [[NUMBER]]]]\n\n'
+             '[h2]aliases:[/h2] {prog} s, {prog} find\n'
+             ''.format(prog=_PROG),
+    description='This command searched the VSCode Marketplace for extensions '
+                'matching the provided search terms. Additional search '
+                'control is provided by specifying sorting options and/or '
+                'specifying the amount of results to display.',
+    options='[h2]--sort-by [[COLUMN]][/h2]\n'
+            '\t* Type: String\n'
+            '\t* Default: Relevance'
+            '\n\n'
+            'Sort the search results in descending order, based on a '
+            'particular column value. {prog} uses fuzzy matching to check if '
+            'the provided [bold]--sort-by[/bold] value matches any of the '
+            'known sort columns.'
+            '\n\n'
+            'Available sort columns include:\n'
+            '[example]{sort_columns}[/]'
+            '\n\n'
+            '[h2]--count [[NUMBER]][/h2]\n'
+            '\t* Type: Integer\n'
+            '\t* Default: 15'
+            '\n\n'
+            'By default, up to 15 results are returned, but this default '
+            'may be overriden to specify how many search results should be '
+            'returned.'.format(
+                prog=_PROG,
+                sort_columns=', '.join(_AVAILABLE_SORT_COLUMNS))
 )
 
 
 class SearchCommand(Command):
+    """
+    The SearchCommand class defines the "search" command. This class
+    inherits from the base Command class.
+    """
     def __init__(self, name, aliases=[]):
         super().__init__(name, _HELP, aliases=aliases)
 
@@ -83,6 +85,7 @@ class SearchCommand(Command):
             'add_help': False,
             'prog': '{} {}'.format(_PROG, self.name)
         }
+
         parser = configargparse.ArgumentParser(**parser_kwargs)
 
         parser.add_argument(
@@ -132,9 +135,10 @@ class SearchCommand(Command):
         """
         if sort_argument:
             match, confidence = process.extractOne(
-                sort_argument,
-                ExtensionQuerySortByTypes.keys())
-            
+                query=sort_argument,
+                choices=ExtensionQuerySortByTypes.keys()
+            )
+
             if confidence > _FUZZY_SORT_CONFIDENCE_THRESHOLD:
                 return match, ExtensionQuerySortByTypes[match]
         return None, None
@@ -143,7 +147,7 @@ class SearchCommand(Command):
     def run(self, *args, **kwargs):
         # TODO: Clean this function up. It's a bit too messy.
         """
-        Implements the "search" command's functionality. Overrides the 
+        Implements the "search" command's functionality. Overrides the
         inherited run() method in the parent Command class.
         """
         # Create a new parser to parse the search command
@@ -164,10 +168,10 @@ class SearchCommand(Command):
                 sorted_sort_options = \
                     sorted(list(ExtensionQuerySortByTypes.keys()))
 
-                self.log.warning('"{}" did not match a known sort column.' \
-                    ''.format(args.sort_by))
-                self.log.warn('Available sort columns:\n{}\n\n' \
-                    ''.format(', '.join(sorted_sort_options)))
+                self.log.warning('"{}" did not match a known sort column.'
+                                 ''.format(args.sort_by))
+                self.log.warn('Available sort columns:\n{}\n\n'.format(
+                    ', '.join(sorted_sort_options)))
 
                 sort_by = _DEFAULT_SORT_BY_ARGUMENT
             else:
@@ -187,6 +191,9 @@ class SearchCommand(Command):
             parser.print_usage()
 
 
+#
+# Create the SearchCommand instance
+#
 search_command = SearchCommand(
     name='search',
     aliases=['search', 'find', 's']
