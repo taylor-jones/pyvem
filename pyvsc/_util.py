@@ -1,20 +1,21 @@
 from builtins import int
 
-def props(cls):
-  """
-  Returns the non-local/non-"private" class key names.
 
-  Returns:
-      Class -- A class
-  """
-  return [i for i in cls.__dict__.keys() if i[:1] != '_']
+def props(cls):
+    """
+    Return the non-local/non-"private" class key names.
+
+    Returns:
+        Class -- A class
+    """
+    return [i for i in cls.__dict__.keys() if i[:1] != '_']
 
 
 def get_public_attributes(obj):
     """
-    Returns a dict containing only the non-underscored attributes from
+    Return a dict containing only the non-underscored attributes from
     an object
-    
+
     Arguments:
         obj {dict} -- A dict
     """
@@ -27,7 +28,7 @@ def get_public_attributes(obj):
 
 def resolved_path(p):
     """
-    Resolves and normalizes a path by:
+    Resolve and normalize a path by:
     - handling tilde expansion
     - handling variable expansion
     - removing relative segments
@@ -45,12 +46,12 @@ def resolved_path(p):
 
 def expanded_path(p):
     """
-    Expands a path to resolve variables, home directory, and relative paths
+    Expand a path to resolve variables, home directory, and relative paths
     and returns an absolute path.
-    
+
     Arguments:
         p {str} -- A file-system path
-    
+
     Returns:
         str -- An expanded file-system path, regardless of whether or not the
             path actually exists.
@@ -61,7 +62,7 @@ def expanded_path(p):
 
 def has_internet_connection():
     """
-    Checks if the system currently has a functioning internet connection
+    Check if the system currently has a functioning internet connection
 
     Returns:
         bool
@@ -78,7 +79,7 @@ def has_internet_connection():
 
 def truthy_list(the_list):
     """
-    Removes "falsy" elements from a list, leaving only the elements that
+    Remove "falsy" elements from a list, leaving only the elements that
     evaluate to True
 
     Arguments:
@@ -92,7 +93,7 @@ def truthy_list(the_list):
 
 def dict_from_list_key(the_list, key, value, default_response=None):
     """
-    Returns the first item from a list of dicts where a specified key in the
+    Return the first item from a list of dicts where a specified key in the
     dict matches a specified value
 
     Arguments:
@@ -122,7 +123,7 @@ def dict_from_list_key(the_list, key, value, default_response=None):
 
 def human_number_format(number):
     """
-    Formats a number into a more human-friendly format (e.g. 1000 = 1K)
+    Format a number into a more human-friendly format (e.g. 1000 = 1K)
 
     Arguments:
         number {int} -- A numeric value to convert
@@ -141,7 +142,7 @@ def human_number_format(number):
 
 def shell_dimensions():
     """
-    Returns the number of rows and columns visible in the current shell
+    Return the number of rows and columns visible in the current shell
 
     Returns:
         tuple(int, int)
@@ -154,7 +155,7 @@ def shell_dimensions():
 
 def less(content):
     """
-    Invokes a `less` subprocess, passing it content and receiving user
+    Invoke a `less` subprocess, passing it content and receiving user
     stdin on the less process.
 
     Arguments:
@@ -172,11 +173,11 @@ def less(content):
 
 def iso_now(include_microseconds=False, format_for_path=True):
     """
-    Returns an ISO timestamp of the current local time.
-    
+    Return an ISO timestamp of the current local time.
+
     Arguments:
-        include_microseconds {bool} -- whether or not to include microseconds in
-            the returned timestamp.
+        include_microseconds {bool} -- whether or not to include microseconds
+        in the returned timestamp.
 
     Returns:
         str
@@ -187,7 +188,7 @@ def iso_now(include_microseconds=False, format_for_path=True):
         output = datetime.now().isoformat()
     else:
         output = datetime.now().replace(microsecond=0).isoformat()
-    
+
     if format_for_path:
         output = output.replace(':', '')
 
