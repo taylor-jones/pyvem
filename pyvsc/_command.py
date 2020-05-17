@@ -12,7 +12,7 @@ from pyvsc._marketplace import Marketplace
 from pyvsc._help import Help
 from pyvsc._config import _PROG, rich_theme
 
-# install_rich_traceback()
+install_rich_traceback()
 
 # TODO: Validate output directory
 
@@ -35,12 +35,11 @@ class Command(object):
         self.name = name
         self.help = help_
         self.aliases = aliases
-        
+
         # Keep track of whether this program created the local output
         # directory. If we created it, we'll delete it. If we didn't create it,
         # we won't delete it.
         self.created_local_output_dir = None
-    
 
         # Ensure all sub-commands have instantiated a Help instance
         # for their 'help' attribute.
@@ -139,7 +138,7 @@ class Command(object):
             # be referenced by sub-commands whenever needed.
             Command.main_parser = main_parser
             Command.main_options = main_options
-            
+
             # pass along the original remote connection arguments to the
             # shared tunnel instance, so it can be ready to connect whenever
             # a command that uses the remote connection is invoked.
@@ -159,7 +158,7 @@ class Command(object):
         except Exception as e:
             self.log.error(e)
         finally:
-            # regardless of what happens, cleanup and created remote 
+            # regardless of what happens, cleanup and created remote
             # directories and close the remote connection.
             self.tunnel.cleanup_created_dirs()
             self.tunnel.close()
@@ -181,11 +180,11 @@ class Command(object):
         Prints a styled error message, entirely using the rich_theme error
         styling. This is suitable for text that is intended to all use the
         error style. For error messages that need for fine-grained output,
-        it's probably better to write the custom message message 
+        it's probably better to write the custom message message
 
         Arguments:
             text {str} -- The error message to output
-        
+
         NOTE: **kwargs are passed to the console.print() method, so any named
         arguments that console.print() supports are supported here as well.
         """

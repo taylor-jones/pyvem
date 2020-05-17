@@ -25,11 +25,11 @@ class CurledRequest():
             ('curl', None),
             ('-X', request.method),
         ]
-        
+
         # add all the request headers to the list of request parts.
         for k, v in sorted(request.headers.items()):
             parts += [('-H', '{0}: {1}'.format(k, v))]
-        
+
         # add all of the elements from the request body to the list of parts.
         if request.body:
             body = request.body
@@ -71,13 +71,13 @@ class CurledRequest():
 
 
     def request(self, method, url, **kwargs):
-        # Pop specific curl-conversion-related items from the kwargs before 
+        # Pop specific curl-conversion-related items from the kwargs before
         # sending them to the Request (since it won't recognize them)
         allow_redirects = kwargs.pop('allow_redirects', True)
         compressed = kwargs.pop('compressed', True)
         output = kwargs.pop('output', None)
         output_dir = kwargs.pop('output_dir', None)
-        
+
         if output_dir and not output:
             output = '%s/%s' % (output_dir, self._get_asset_name_from_url(url))
 

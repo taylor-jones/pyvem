@@ -3,6 +3,7 @@ from __future__ import absolute_import
 
 import logging
 import json
+import os
 
 from pyvsc._util import dict_from_list_key
 from pyvsc._containers import AttributeDict
@@ -38,6 +39,7 @@ _NON_MARKETPLACE_EXTENSIONS = AttributeDict({
 _LOGGER = logging.getLogger(__name__)
 _curled = CurledRequest()
 
+
 class ExtensionSourceTypes:
     Undefined = 0
     Marketplace = 1
@@ -58,22 +60,45 @@ class Extension():
         self.tunnel = tunnel
         self.unique_id = kwargs.get('unique_id')
         self.download_url = kwargs.get('download_url')
-        self.download_from_marketplace = \
-            not self.unique_id in _NON_MARKETPLACE_EXTENSIONS.keys()
+        self.should_download_from_marketplace = \
+            self.unique_id not in _NON_MARKETPLACE_EXTENSIONS.keys()
 
-    def download(self, directory):
-        ext_name = self.unique_id
+
+    def download(self, remote_dir, local_dir):
+        """
+        Download the .vsix extension.
+
+        Communicate to the tunnel instance to download the extension on the
+        remote machine and then copy it to the specified location on the
+        local machine.
+
+        Arguments:
+            remote_dir {str} -- Absolute path to the download directory on the
+                remote host
+            local_dir {str} -- Absolute path to the download directory on the
+                local host.
+
+        Returns
+            str -- The absolute path to the downloaded file on the local
+            machine (if sucessful). If unsuccessful, returns False.
+
+        """
+        extension_name = self.unique_id
         if hasattr(self, 'version'):
-            ext_name = '{}-{}'.format(ext_name, self.version)
+            extension_name = '{}-{}'.format(extension_name, self.version)
+        extension_file = '{}.vsix'.format(extension_name)
 
-        curled_request = _curled.get(
-            self.download_url, output='{}/{}.vsix'.format(directory, ext_name))
+        remote_path = os.path.join(remote_dir, extension_file)
+        local_path = os.path.join(local_dir, extension_file)
+        curled_request = _curled.get(self.download_url, output=remote_path)
         response = self.tunnel.run(curled_request)
 
-        if response.exited == 0:
-            _LOGGER.info(response.stdout)
-        else:
+        if response.exited != 0:
             _LOGGER.error(response.stderr)
+            return False
+
+        self.tunnel.get(remote_path, local_path)
+        return local_path
 
 
 
@@ -272,7 +297,8 @@ def get_extension(unique_id, tunnel=None, release='latest'):
     if e is None:
         return MarketplaceExtension(
             Marketplace(tunnel=tunnel).get_extension(unique_id),
-            tunnel=tunnel)
+            tunnel=tunnel
+        )
 
     return GithubExtension(
         owner=e.owner,

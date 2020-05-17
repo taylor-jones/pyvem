@@ -52,7 +52,7 @@ SupportedEditorCommands = AttributeDict({
 
 class SupportedEditor(AttributeDict):
     """
-    Defines the attributes of a supported code editor
+    Define the attributes of a supported code editor.
     """
     def __init__(
         self,
@@ -86,6 +86,23 @@ class SupportedEditor(AttributeDict):
         }
         '''
         self._latest = None
+
+
+    def install_extension(self, extension_path):
+        try:
+            ext_name = os.path.basename(extension_path)
+            _LOGGER.info('Installing {}'.format(ext_name))
+            proc = subprocess.Popen([
+                self.command,
+                '--install-extension',
+                extension_path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
+            proc.wait()
+
+        except Exception as e:
+            _LOGGER.error('Failed to install extension: {}'.format(ext_name))
+            _LOGGER.debug(e)
 
 
     def get_extensions(self, force_recheck=False):
@@ -125,7 +142,7 @@ class SupportedEditor(AttributeDict):
 
     def download(self, remote_dir, local_dir):
         """
-        Communicates to the tunnel instance to download the editor on the
+        Communicate to the tunnel instance to download the editor on the
         remote machine and then copy it to the specified location on the
         local machine.
 
@@ -165,8 +182,7 @@ class SupportedEditor(AttributeDict):
         else:
             path = '/{}/{}/latest'.format(
                 _MARKETPLACE_EDITOR_DISTRO_PATTERN,
-                self.remote_alias
-            )
+                self.remote_alias)
             self._api_url = '{}{}'.format(self.api_root_url, path)
         return self._api_url
 
@@ -282,6 +298,7 @@ def set_tunnel_for_editors(tunnel, *editors):
 
     Arguments:
         tunnel {Tunnel} -- A Tunnel instance
+
     """
     for editor in editors:
         assert isinstance(editor, SupportedEditor)
@@ -290,6 +307,8 @@ def set_tunnel_for_editors(tunnel, *editors):
 
 def get_editors(tunnel=None):
     """
+    Get AttributeDict of SupportedEditors.
+
     Builds an AttributeDict of data about each of the support VSCode editor
     variations on the current system.
 
@@ -298,8 +317,9 @@ def get_editors(tunnel=None):
         remote requests as part of building the editor information
         (default: {None})
 
-    Returns:
+    Returns
         AttributeDict
+
     """
     return AttributeDict({
         'code': SupportedEditor(

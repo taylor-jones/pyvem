@@ -1,6 +1,9 @@
 from __future__ import print_function, absolute_import
 
 import configargparse
+import logging
+import multiprocessing
+
 from fuzzywuzzy import process
 from beeprint import pp
 
@@ -9,10 +12,13 @@ from pyvsc._config import _PROG
 from pyvsc._help import Help
 from pyvsc._util import props
 from pyvsc._editor import SupportedEditorCommands, get_editors
+from pyvsc._extension import get_extension
 
 _FUZZY_SORT_CONFIDENCE_THRESHOLD = 85
 _AVAILABLE_EDITOR_KEYS = SupportedEditorCommands.keys()
 _AVAILABLE_EDITOR_VALUES = SupportedEditorCommands.values()
+_LOGGER = logging.getLogger(__name__)
+
 
 _HELP = Help(
     name='install',
@@ -105,8 +111,8 @@ class InstallCommand(Command):
             # Add the match to the running set of matched editors
             editors.add(match)
 
-        editors = editors if bool(editors) else None
-        extensions = extensions if bool(extensions) else None
+        # editors = editors if bool(editors) else None
+        # extensions = extensions if bool(extensions) else None
         return editors, extensions
 
 
@@ -226,6 +232,66 @@ class InstallCommand(Command):
         return parser
 
 
+    def _validate_target_editors(self, supported_editors, requested_targets):
+        """
+        Check to make sure that each of the target editors is on the PATH.
+
+        Arguments:
+            supported_editors {list} -- list of SupportedEditors
+            requested_targets {set} -- set of requested editor names.
+        """
+        for req in requested_targets:
+            target = supported_editors[req]
+            id = target.editor_id
+            if not target.installed:
+                _LOGGER.error('Can use destination editor "{}". It\'s '
+                              'either not installed or not on the PATH.'
+                              ''.format(id))
+                requested_targets.remove(req)
+        return requested_targets
+
+
+    def _install_editors(self, supported_editors, editors_to_install):
+        """
+        Install any requested editors. For each editor, check if it's already
+        installed with the latest version.
+
+        Arguments:
+            supported_editors {list} -- list of SupportedEditors
+            editors_to_install {set} -- set of requested editor names.
+        """
+        remote_output = Command.main_options.remote_output_dir
+        local_output = Command.main_options.output_dir
+
+        for req in editors_to_install:
+            current_editor = supported_editors[req]
+            id = current_editor.editor_id
+
+            if current_editor.can_update:
+                downloaded_path = current_editor.download(
+                    remote_output, local_output)
+                self.store_temporary_file_path(downloaded_path)
+            else:
+                _LOGGER.info('{} is already up-to-date.'.format(id))
+
+
+    def _install_extensions(self, system_editors, target_editors, extensions):
+        remote_output = Command.main_options.remote_output_dir
+        local_output = Command.main_options.output_dir
+
+        for req in extensions:
+            ext = get_extension(req, tunnel=Command.tunnel)
+            extension_path = ext.download(remote_output, local_output)
+
+            # install the extension to all target editors
+            for editor_name in target_editors:
+                editor = system_editors[editor_name]
+                editor.install_extension(extension_path)
+
+            # add the extension to the list of temporary files to remove
+            self.store_temporary_file_path(extension_path)
+
+
     def run(self, *args, **kwargs):
         """
         Implements the "install" command's functionality. Overrides the
@@ -234,16 +300,16 @@ class InstallCommand(Command):
         # build a parser that's specific to the 'install' command and parse the
         # 'install' command arguments.
         parser = self.get_command_parser()
-        args = parser.parse_args()
+        args, remainder = parser.parse_known_args()
 
         # Remove the leading "install" command from the arguments
         args.extensions_or_editors = args.extensions_or_editors[1:]
 
         # Make sure we've gotten a request to install something
         if args.extensions_or_editors:
-            requested_editors = None
-            requested_extensions = None
-            requested_dest_editors = None
+            editors_to_install = None
+            extensions_to_install = None
+            target_editors = None
 
             # pp(vars(args))
             # pp(vars(Command.main_options))
@@ -251,69 +317,38 @@ class InstallCommand(Command):
             # A user may request to install code editors and/or extensions.
             # Separate the editors from the extensions, so we can process them
             # differently.
-            requested_editors, requested_extensions = \
+            editors_to_install, extensions_to_install = \
                 self._parse_editors_from_extensions(args.extensions_or_editors)
 
             # If any extensions were requested for install, we'll also need to
             # determine where those extensions should be installed.
-            if requested_extensions:
-                requested_dest_editors = self._get_dest_editors(args.target)
-
-            # pp(requested_editors)
-            # pp(requested_extensions)
-            # pp(requested_dest_editors)
-
-            #
-            # Now we know all the components that should be installed.
-            #
+            if extensions_to_install:
+                target_editors = self._get_dest_editors(args.target)
 
             # get a tunnel connection
             Command.tunnel.connect()
 
             # get a handle to the current system editors
-            editors = get_editors(Command.tunnel)
-            pp(editors)
-
-            remote_output_dir = Command.main_options.remote_output_dir
-            local_output_dir = Command.main_options.output_dir
+            system_editors = get_editors(Command.tunnel)
 
             # make sure the output directory exists
             if not self.ensure_output_dirs_exist():
-                self.log.error('Could not ensure the existence of the '
-                               'required output directories.')
+                _LOGGER.error('Could not ensure the existence of the required '
+                              'output directories.')
 
-            # First, install any editors. Check if the desired editors are
-            # already installed with the latest version.
-            for e in requested_editors:
-                current_editor = editors[e]
-                id = current_editor.editor_id
+            # install any requested editors
+            self._install_editors(system_editors, editors_to_install)
 
-                if current_editor.can_update:
-                    downloaded_path = current_editor.download(
-                        remote_output_dir, local_output_dir)
-                    self.store_temporary_file_path(downloaded_path)
-                else:
-                    self.log.info('{} is already up-to-date.'.format(id))
+            # validate any target editors
+            target_editors = \
+                self._validate_target_editors(system_editors, target_editors)
 
-            # After installing the editors, we'll need to inspect the target
-            # destination editors to ensure they're available on the PATH.
-            #
-            # The reason this should be done after installing the editors is
-            # because the user may want to install extensions to an editor that
-            # was not installed prior to running the "install" command.
-            for e in requested_dest_editors:
-                current_editor = editors[e]
-                id = current_editor.editor_id
-                if not current_editor.installed:
-                    self.log.error('Can use destination editor "{}". It\'s '
-                                   'either not installed or not on the PATH.'
-                                   ''.format(id))
-
-            # Then, install eny extensions.
-            # TODO: Figure out which extensions are not already the latest.
+            # install any requested extensions
+            self._install_extensions(
+                system_editors, target_editors, extensions_to_install)
 
         else:
-            self.log.error('The "install" command expects 1 or more arguments.')
+            _LOGGER.error('The "install" command expects 1 or more arguments.')
             parser.print_usage()
 
 
