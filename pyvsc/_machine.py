@@ -1,3 +1,10 @@
+import logging
+
+_LOGGER = logging.getLogger(__name__)
+_LOGGER.setLevel(logging.NOTSET)
+
+_DARWIN_INSTALL_LOCATION = '/Applications'
+
 """
 Notes on supported platforms:
 
@@ -11,8 +18,11 @@ Notes on supported platforms:
     - AppImage
 """
 
+
 class Machine():
     """
+    Identify common attributes for current system.
+
     Class that identifies system attributes that have an effect on determining
     which vscode editor(s) and/or extension(s) are appropriate for a pyvsc
     action.
@@ -22,6 +32,7 @@ class Machine():
     editors and their extensions. In doing so, default system attributes are
     used where it's deemed reasonable.
     """
+
     def __init__(self):
         from platform import system, processor
         self.os = system().lower()
@@ -40,7 +51,8 @@ class Machine():
             return None
 
         package_manager_path = popen(
-            'for i in $(echo rpm dpkg pacman apt-get); do command -v $i; done 2> /dev/null',
+            'for i in $(echo rpm dpkg pacman apt-get); do command -v $i; '
+            'done 2> /dev/null',
             shell=True
         ).rstrip()
 
@@ -52,6 +64,7 @@ class Machine():
 #
 
 _MACHINE = Machine()
+
 
 def platform_query(
     windows='windows',
@@ -73,9 +86,9 @@ def platform_query(
     on the attributes of the current system as determined by the Machine class.
 
     In other words, a caller of this function may specify which values to
-    return based off of the current machine's attributes. Values that are left 
-    as None will instead inherit the value of the nearest ancestor platform 
-    which has a truthy value specification. 
+    return based off of the current machine's attributes. Values that are left
+    as None will instead inherit the value of the nearest ancestor platform
+    which has a truthy value specification.
 
     NOTE: If no truthy value is able to be determined based on the provided
     arguments and current system attributes, an OSError exception israised.
@@ -107,7 +120,7 @@ def platform_query(
       current platform is any other Linux-based distro:
       >>> platform_query(linux='AppImage', rpm='linux-rpm', deb='linux-deb')
 
-    * EX 5: Caller wants to return the value 'linux' if the current platform 
+    * EX 5: Caller wants to return the value 'linux' if the current platform
       is Linux, 'darwin' if the current platform is mac OS, and raise an
       exception if the current platform is any version of Windows.
       >>> platform_query(linux='linux', darwin='darwin', windows=None)
@@ -184,3 +197,69 @@ def platform_query(
     if not result:
         raise OSError('The current platform is not supported')
     return result
+
+
+#
+# System installation helpers
+#
+
+def install_dmg(dmg_file_path):
+    """
+    Installs a .dmg file located at a given path into the /Applications folder.
+
+    Arguments:
+        dmg_file_path {str} -- The absolute path to the .dmg file.
+    """
+    from subprocess import Popen, PIPE
+    from os import listdir, path
+    from shutil import copytree
+
+    # dmgs are darwin-only
+    assert(_MACHINE.os == 'darwin')
+
+    # mount the dmg image
+    proc = Popen(['hdiutil', 'attach', dmg_file_path],
+                 stdout=PIPE, stderr=PIPE, encoding='utf-8')
+    proc.wait()
+
+    # find the mounted path
+    mount_path = proc.stdout.read().split()[-1]
+    _LOGGER.debug('Mounted {} at {}'.format(dmg_file_path, mount_path))
+
+    try:
+        # find the .app at the mounted path
+        app = next(f for f in listdir(mount_path) if f.endswith('.app'))
+        _LOGGER.debug('Found application {}'.format(app))
+
+        # copy the .app to the Applications folder
+        mounted_app_path = path.join(mount_path, app)
+        applications_path = path.join(_DARWIN_INSTALL_LOCATION, app)
+        copytree(mounted_app_path, applications_path)
+        _LOGGER.info('Installed {} to {}'.format(app, applications_path))
+
+    except Exception as e:
+        _LOGGER.error(e)
+
+    finally:
+        # unmount the dmg image
+        proc = Popen(['hdiutil', 'detach', mount_path],
+                     stdout=PIPE, stderr=PIPE, encoding='utf-8')
+        proc.wait()
+
+
+def install_zip(zipped_path):
+    """
+    Installs a VSCode-like editor from a .zip file to the system
+
+    Arguments:
+        zipped_path {str} -- Absolute path to the .zip location
+    """
+    from os import system
+    if _MACHINE.os == 'darwin':
+        install_path = _DARWIN_INSTALL_LOCATION
+        system('unzip -q -o {} -d {}'.format(zipped_path, install_path))
+    else:
+        raise('Your OS does not support installing VSCode editors from a .zip')
+
+
+# TODO: handle installation types for other systems.

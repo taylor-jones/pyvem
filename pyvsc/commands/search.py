@@ -2,8 +2,6 @@ from __future__ import print_function, absolute_import
 
 import configargparse
 from fuzzywuzzy import process
-from rich.console import Console
-from rich.syntax import Syntax
 
 from pyvsc._command import Command
 from pyvsc._config import _PROG
@@ -74,7 +72,17 @@ class SearchCommand(Command):
 
 
     def get_command_parser(self, *args, **kwargs):
-        parser_kwargs = {'add_help': False, 'prog': self.name}
+        """
+        Builds and returns an argument parser that is specific to the "install"
+        command.
+
+        Returns:
+            configargparse.ArgParser
+        """
+        parser_kwargs = {
+            'add_help': False,
+            'prog': '{} {}'.format(_PROG, self.name)
+        }
         parser = configargparse.ArgumentParser(**parser_kwargs)
 
         parser.add_argument(
@@ -101,7 +109,7 @@ class SearchCommand(Command):
         parser.add_argument(
             '--count',
             default=15,
-            metavar='INT',
+            metavar='NUMBER',
             type=int,
             help='The max number of search results to return.'
         )
@@ -110,6 +118,18 @@ class SearchCommand(Command):
 
 
     def _get_sort_query(self, sort_argument=None):
+        """
+        Determines the sort query component from the provided argument.
+
+        Keyword Arguments:
+            sort_argument {str} -- The sort argument provided in the search
+            command (if any) (default: {None})
+
+        Returns:
+            tuple(str, int) -- The name of the column to sort by, the integer
+            value to pass to the VSCode Marketplace so that it can register
+            which column we want to sort by.
+        """
         if sort_argument:
             match, confidence = process.extractOne(
                 sort_argument,
@@ -121,6 +141,11 @@ class SearchCommand(Command):
 
 
     def run(self, *args, **kwargs):
+        # TODO: Clean this function up. It's a bit too messy.
+        """
+        Implements the "search" command's functionality. Overrides the 
+        inherited run() method in the parent Command class.
+        """
         # Create a new parser to parse the search command
         parser = self.get_command_parser()
         args, remainder = parser.parse_known_args()
@@ -133,9 +158,9 @@ class SearchCommand(Command):
             query_string = ' '.join(args.query)
             sort_name, sort_num = self._get_sort_query(args.sort_by)
 
+            # If we couldn't reasonably fuzzy-match a sort column, log that
+            # warning to the console and use the default sort column.
             if sort_num is None:
-                # If we couldn't reasonably fuzzy-match a sort column, log that
-                # warning to the console and use the default sort column.
                 sorted_sort_options = \
                     sorted(list(ExtensionQuerySortByTypes.keys()))
 
@@ -149,10 +174,13 @@ class SearchCommand(Command):
                 self.log.debug('Sorting by "{}"'.format(sort_name))
                 sort_by = sort_num
 
-            # send the query to the marketplace
+            # send the search query to the marketplace
             Command.tunnel.connect()
             Command.marketplace.search_extensions(
-                query_string, sort_by=sort_by, page_size=args.count)
+                query_string,
+                sort_by=sort_by,
+                page_size=args.count
+            )
 
         else:
             self.log.error('The "search" command expects a query.')

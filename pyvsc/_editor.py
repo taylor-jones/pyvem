@@ -2,6 +2,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import os
 import re
 import subprocess
 import json
@@ -41,11 +42,12 @@ _LOGGER = logging.getLogger(__name__)
 _curled = CurledRequest()
 
 
-class SupportedEditorCommands:
-    code = 'code'
-    insiders = 'code-insiders'
-    exploration = 'code-exploration'
-    codium = 'codium'
+SupportedEditorCommands = AttributeDict({
+    'code': 'code',
+    'insiders': 'code-insiders',
+    'exploration': 'code-exploration',
+    'codium': 'codium',
+})
 
 
 class SupportedEditor(AttributeDict):
@@ -69,7 +71,7 @@ class SupportedEditor(AttributeDict):
         self.api_root_url = api_root_url
         self.github_ext_pattern = github_ext_pattern
         self.tunnel = tunnel
-        
+
         '''
         Once set, "latest" has the following structure:
 
@@ -121,6 +123,39 @@ class SupportedEditor(AttributeDict):
         return self._extensions
 
 
+    def download(self, remote_dir, local_dir):
+        """
+        Communicates to the tunnel instance to download the editor on the
+        remote machine and then copy it to the specified location on the
+        local machine.
+
+        Arguments:
+            remote_dir {str} -- Absolute path to the download directory on the
+                remote host
+            local_dir {str} -- Absolute path to the download directory on the
+                local host.
+
+        Returns:
+            str -- The absolute path to the downloaded file on the local
+            machine (if sucessful). If unsuccessful, returns False.
+        """
+        remote_path = os.path.join(remote_dir, self.download_file_name)
+        local_path = os.path.join(local_dir, self.download_file_name)
+        curled_request = _curled.get(self.download_url, output=remote_path)
+
+        response = self.tunnel.run(curled_request)
+        if response.exited != 0:
+            _LOGGER.error(response.stderr)
+            return False
+
+        _LOGGER.info(response.stdout)
+        self.tunnel.get(remote_path, local_path)
+
+        # return the path to the local file so we can keep track of it
+        # and delete it once processing completes
+        return local_path
+
+
     @property
     def api_url(self):
         if self._api_url is not None:
@@ -128,9 +163,11 @@ class SupportedEditor(AttributeDict):
         if self.api_root_url.startswith(_GITHUB_EDITOR_UPDATE_ROOT_URL):
             self._api_url = self.api_root_url
         else:
-            path = '/%s/%s/latest' % \
-                (_MARKETPLACE_EDITOR_DISTRO_PATTERN, self.remote_alias)
-            self._api_url = '%s%s' % (self.api_root_url, path)
+            path = '/{}/{}/latest'.format(
+                _MARKETPLACE_EDITOR_DISTRO_PATTERN,
+                self.remote_alias
+            )
+            self._api_url = '{}{}'.format(self.api_root_url, path)
         return self._api_url
 
 
@@ -155,39 +192,50 @@ class SupportedEditor(AttributeDict):
 
     @property
     def download_url(self):
+        if self._download_url is not None:
+            return self._download_url
+
         if self.api_url.startswith(_GITHUB_EDITOR_UPDATE_ROOT_URL):
             # if this editor uses the github api, we need to determine which
             # asset we're looking for and find the browser download url
             assets = self.latest['assets']
             asset = next(x for x in assets if x['name'].endswith(
                 self.github_ext_pattern))
-            return asset['browser_download_url']
+            self._download_url = asset['browser_download_url']
 
         elif self.api_root_url == _MARKETPLACE_EDITOR_UPDATE_ROOT_URL:
             # if this editor uses the the visualstudio update api,
             # then just get the url key from the json result.
-            return self.latest['url']
+            self._download_url = self.latest['url']
+
+        return self._download_url
+
+
+    @property
+    def download_file_name(self):
+        return os.path.basename(self.download_url)
 
 
     @property
     def extensions_dir(self):
         if self._extensions_dir is None:
             self._extensions_dir = \
-                expanded_path('$HOME/%s/extensions' % self.home_dirname)
+                expanded_path('$HOME/{}/extensions'.format(self.home_dirname))
         return self._extensions_dir
 
 
     @property
     def installed(self):
-        if self._installed is None:
-            self._installed = find_executable(self.command) is not None
-        return self._installed
+        return find_executable(self.command) is not None
 
 
     @property
     def can_update(self):
+        # if we've already run this check, we don't need to do it again.
         if self._can_update is not None:
             return self._can_update
+
+        # if the editor isn't installed, by default it can be updated.
         elif not self.installed:
             self._can_update = True
             return self._can_update
@@ -198,22 +246,46 @@ class SupportedEditor(AttributeDict):
                 self.command, '--version'
             ], shell=False).splitlines()
 
+            # format the info about the currently installed version
             self.version = output[0].decode(_ENCODING)
             self.hash = output[1].decode(_ENCODING)
+
+            _LOGGER.debug('{} installed version: {}'.format(
+                self.editor_id, self.version))
 
             # check the latest remote version
             latest = self.latest
             remote_version = latest['name']
             remote_hash = latest['version']
 
+            _LOGGER.debug('{} latest version: {}'.format(
+                self.editor_id, remote_version))
+
+            # if the installed version doesn't match the latest remote version
+            # or the installed hash doesn't match the latest remote hash,
+            # we'll assume the editor can be updated.
             self._can_update = \
                 self.version != remote_version or self.hash != remote_hash
 
-        except Exception as e:
+        except (TypeError, ValueError) as e:
+            _LOGGER.debug(e)
             self._can_update = False
+
         finally:
             return self._can_update
 
+
+
+def set_tunnel_for_editors(tunnel, *editors):
+    """
+    Apply a tunnel object for all provided SupportedEditor instances.
+
+    Arguments:
+        tunnel {Tunnel} -- A Tunnel instance
+    """
+    for editor in editors:
+        assert isinstance(editor, SupportedEditor)
+        setattr(editor, 'tunnel', tunnel)
 
 
 def get_editors(tunnel=None):
@@ -267,26 +339,3 @@ def get_editors(tunnel=None):
             )
         )
     })
-
-
-
-#######################################################################
-# Test Commands -- 
-#######################################################################
-
-# from beeprint import pp
-# from pyvsc._tunnel import Tunnel
-# from pyvsc._containers import ConnectionParts
-
-# _ssh_host = ConnectionParts(hostname='centos', password='pass')
-# _ssh_gateway = ConnectionParts(hostname='centos2', password='pass')
-# _tunnel = Tunnel(_ssh_host, _ssh_gateway, True)
-
-
-# editors = get_editors(_tunnel)
-
-# pp(editors.code.download_url)
-# pp(editors.code.can_update)
-
-# pp(Editors.code.download_url, max_depth=8, indent=2, width=200, sort_keys=True)
-# pp(Editors.codium.download_url, max_depth=8, indent=2, width=200, sort_keys=True)

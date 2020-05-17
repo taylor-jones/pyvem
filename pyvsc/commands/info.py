@@ -25,6 +25,7 @@ class InfoCommand(Command):
         super().__init__(name, _HELP, aliases=aliases)
 
     def run(self, *args, **kwargs):
+        # TODO: Add parser, add better comments.
         args = Command.main_options.args
         arg_count = len(args)
         

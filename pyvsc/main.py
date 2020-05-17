@@ -1,12 +1,12 @@
 from __future__ import print_function
 from __future__ import absolute_import
 
-import re
 import os
 import sys
 import configargparse
 import logging
 
+from getpass import getuser
 from fuzzywuzzy import process
 from rich.console import Console
 from rich.logging import RichHandler
@@ -26,11 +26,12 @@ from pyvsc._config import _PROG, rich_theme
 from pyvsc._containers import parsed_connection_parts
 
 _console = Console(theme=rich_theme)
+_tmp_output_dir = '/tmp/{}-{}-{}'.format(getuser(), _PROG, iso_now())
 _RICH_FORMAT = "%(message)s"
 
 logging.basicConfig(
     level="NOTSET",  # TODO: Make dynamic
-    format=_RICH_FORMAT, 
+    format=_RICH_FORMAT,
     datefmt="[%X] ",
     handlers=[RichHandler(console=_console)]
 )
@@ -40,15 +41,15 @@ _LOGGER = logging.getLogger(__name__)
 
 def create_main_parser():
     """
-    Creates and returns the main parser for vem's CLI
+    Create and returns the main parser for vem's CLI.
 
     Returns:
         ConfigArgParse.ArgParser
     """
     parser_kwargs = {
-        'usage': '%s <command> [options]\n\nwhere <command> is one of:\n%s' \
-            '\n\nFor help about a certain command:\n\t%s help <command>'% \
-            (_PROG, '\t' + ', '.join(_COMMAND_NAMES), _PROG),
+        'usage': '{} <command> [options]\n\nwhere <command> is one of:\n{}'
+                 '\n\nFor help about a certain command:\n\t{} help <command>'
+                 ''.format(_PROG, '\t' + ', '.join(_COMMAND_NAMES), _PROG),
         'add_help': False,
         'default_config_files': ['.vemrc', '~/.vemrc', '~/.config/.vemrc'],
         'prog': _PROG,
@@ -60,7 +61,7 @@ def create_main_parser():
         'command',
         nargs='?',
         choices=_COMMAND_NAMES.append(None),
-        help='The main vem command to execute.'
+        help='The main {} command to execute.'.format(_PROG)
     )
 
     parser.add_argument(
@@ -84,6 +85,13 @@ def create_main_parser():
     )
 
     parser.add_argument(
+        '--no-cleanup',
+        action='store_true',
+        default=False,
+        help='Do not remove temporary downloads on the local machine.'
+    )
+
+    parser.add_argument(
         '-h', '--ssh-host',
         default='',
         type=parsed_connection_parts,
@@ -97,10 +105,17 @@ def create_main_parser():
         help='Specify a SSH gateway in the form [user@]server[:port].'
     )
 
+    parser.add_argument(
+        '-o', '--output-dir',
+        default=_tmp_output_dir,
+        type=resolved_path,
+        help='The directory where the extensions will be downloaded.'
+    )
 
     #
     # Add verbosity argument option group
     #
+
     log_level = parser.add_mutually_exclusive_group()
     parser.set_defaults(log_level=logging.INFO)
 
@@ -122,39 +137,40 @@ def create_main_parser():
 
 
     #
-    # Add the editor argument option group
+    # Add the target editor argument option group
     #
-    editor = parser.add_mutually_exclusive_group()
-    parser.set_defaults(editor=SupportedEditorCommands.code)
 
-    editor.add_argument(
+    target = parser.add_mutually_exclusive_group()
+    parser.set_defaults(target=SupportedEditorCommands.code)
+
+    target.add_argument(
         '--code',
         action='store_const',
-        dest='editor',
+        dest='target',
         const=SupportedEditorCommands.code,
         help='(default) Use VSCode as the target editor.'
     )
 
-    editor.add_argument(
+    target.add_argument(
         '--insiders',
         action='store_const',
-        dest='editor',
+        dest='target',
         const=SupportedEditorCommands.insiders,
         help='Use VSCode Insiders as the target editor.'
     )
 
-    editor.add_argument(
+    target.add_argument(
         '--exploration',
         action='store_const',
-        dest='editor',
+        dest='target',
         const=SupportedEditorCommands.code,
         help='Use VSCode Exploration as the target editor.'
     )
 
-    editor.add_argument(
+    target.add_argument(
         '--codium',
         action='store_const',
-        dest='editor',
+        dest='target',
         const=SupportedEditorCommands.codium,
         help='Use VSCodium as the target editor.'
     )
@@ -165,11 +181,13 @@ def create_main_parser():
 def main():
     parser = create_main_parser()
     args, remainder = parser.parse_known_args()
-    # print(args)
 
     # For now, add any remainder arguments to the extra args that we store
     # in a list after plucking the command.
     args.args.extend(remainder)
+
+    # Add the remote output directory (doesn't need to be set by user)
+    args.remote_output_dir = _tmp_output_dir
 
     # If we got no command, make sure the user didn't just ask for the version,
     # which would be the only case where it's valid to provide an option
@@ -196,17 +214,14 @@ def main():
             args.command, _PROG))
 
         # Check for fuzzy-ish matches. Limit to 50% matches or greater.
-        similar = [
-            x[0] for x in process.extract(
-                args.command,
-                _COMMAND_NAMES_AND_ALIASES
-            )if x[1] > 50
-        ]
+        similar = [x[0] for x in process.extract(
+            args.command, _COMMAND_NAMES_AND_ALIASES
+        ) if x[1] > 50]
 
         # If any similar-enough matches were found, print those suggestions
         if similar:
-            print('Maybe you meant one of these commands?\n%s\n' \
-                % ', '.join(similar))
+            items = ', '.join(similar)
+            print('Maybe you meant one of these commands?\n{}\n'.format(items))
 
         parser.print_usage()
         print('')

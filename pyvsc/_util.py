@@ -1,5 +1,14 @@
 from builtins import int
 
+def props(cls):
+  """
+  Returns the non-local/non-"private" class key names.
+
+  Returns:
+      Class -- A class
+  """
+  return [i for i in cls.__dict__.keys() if i[:1] != '_']
+
 
 def get_public_attributes(obj):
     """
@@ -161,7 +170,7 @@ def less(content):
         less(content.encode())
 
 
-def iso_now(include_microseconds=False):
+def iso_now(include_microseconds=False, format_for_path=True):
     """
     Returns an ISO timestamp of the current local time.
     
@@ -173,6 +182,13 @@ def iso_now(include_microseconds=False):
         str
     """
     from datetime import datetime
+
     if include_microseconds:
-        return datetime.now().isoformat()
-    return datetime.now().replace(microsecond=0).isoformat()
+        output = datetime.now().isoformat()
+    else:
+        output = datetime.now().replace(microsecond=0).isoformat()
+    
+    if format_for_path:
+        output = output.replace(':', '')
+
+    return output

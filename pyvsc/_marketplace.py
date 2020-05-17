@@ -1,7 +1,6 @@
 from __future__ import print_function, absolute_import
 
 import json
-import re
 import logging
 
 from textwrap import dedent
