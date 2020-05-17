@@ -246,39 +246,37 @@ class InstallCommand(Command):
         return parser
 
 
-    def _validate_target_editors(self, system_editors, requested_targets):
+    def _validate_target_editors(self, requested_targets):
         """
         Check to make sure that each of the target editors is on the PATH.
 
         Arguments:
-            system_editors {AttributeDict} -- dict result of get_editors()
             requested_targets {set} -- set of requested editor names.
         """
         for req in requested_targets:
-            target = system_editors[req]
+            target = self.system_editors[req]
             id = target.editor_id
 
             if not target.installed:
-                _LOGGER.error('Can use destination editor "{}". It\'s either '
-                              'not installed or not on the PATH.'.format(id))
+                _LOGGER.error('Cannot use destination editor "{}". It\'s either'
+                              ' not installed or not on the PATH.'.format(id))
                 requested_targets.remove(req)
         return requested_targets
 
 
-    def _install_editors(self, system_editors, editors_to_install):
+    def _install_editors(self, editors_to_install):
         """
         Install any requested editors. For each editor, check if it's already
         installed with the latest version.
 
         Arguments:
-            system_editors {AttributeDict} -- dict result of get_editors()
             editors_to_install {set} -- set of requested editor names.
         """
         remote_output = Command.main_options.remote_output_dir
         local_output = Command.main_options.output_dir
 
         for req in editors_to_install:
-            current_editor = system_editors[req]
+            current_editor = self.system_editors[req]
             id = current_editor.editor_id
 
             if current_editor.can_update:
@@ -289,7 +287,7 @@ class InstallCommand(Command):
                 _LOGGER.info('{} is already up-to-date.'.format(id))
 
 
-    def _install_extensions(self, system_editors, target_editors, extensions):
+    def _install_extensions(self, target_editors, extensions):
         """
         Install any requested extensions.
 
@@ -297,7 +295,6 @@ class InstallCommand(Command):
         to each of the target code editors.
 
         Arguments:
-            system_editors {AttributeDict} -- dict result of get_editors()
             target_editors {set} -- A set of the names of target editors.
             extensions {set} -- A set of extensions to download and install.
         """
@@ -321,7 +318,7 @@ class InstallCommand(Command):
             # Install the extension at each path to each of the target editors.
             for path in extension_paths:
                 for editor_name in target_editors:
-                    editor = system_editors[editor_name]
+                    editor = self.system_editors[editor_name]
                     editor.install_extension(path)
 
                 # add the extension to the list of temporary files to remove
@@ -337,7 +334,7 @@ class InstallCommand(Command):
         # build a parser that's specific to the 'install' command and parse the
         # 'install' command arguments.
         parser = self.get_command_parser()
-        args, remainder = parser.parse_known_args()
+        args, _ = parser.parse_known_args()
 
         # Remove the leading "install" command from the arguments
         args.extensions_or_editors = args.extensions_or_editors[1:]
@@ -354,8 +351,10 @@ class InstallCommand(Command):
             editors_to_install, extensions_to_install = \
                 self._parse_editors_from_extensions(args.extensions_or_editors)
 
-            _LOGGER.debug('Editors to Install: {}'.format(delimit(editors_to_install)))
-            _LOGGER.debug('Extensions to Install: {}'.format(delimit(extensions_to_install)))
+            _LOGGER.debug('Editors to Install: {}'.format(
+                delimit(editors_to_install)))
+            _LOGGER.debug('Extensions to Install: {}'.format(
+                delimit(extensions_to_install)))
 
             # If any extensions were requested for install, we'll also need to
             # determine where those extensions should be installed.
@@ -366,7 +365,7 @@ class InstallCommand(Command):
             Command.tunnel.connect()
 
             # get a handle to the current system editors
-            system_editors = get_editors(Command.tunnel)
+            self.system_editors = get_editors(Command.tunnel)
 
             # make sure the output directory exists
             if not self.ensure_output_dirs_exist():
@@ -374,20 +373,14 @@ class InstallCommand(Command):
                               'output directories.')
 
             # install any requested editors
-            self._install_editors(system_editors, editors_to_install)
+            self._install_editors(editors_to_install)
 
             # validate any target editors
-            target_editors = self._validate_target_editors(
-                system_editors,
-                target_editors)
+            target_editors = self._validate_target_editors(target_editors)
             _LOGGER.debug('Target Editors: {}'.format(delimit(target_editors)))
 
             # install any requested extensions
-            self._install_extensions(
-                system_editors,
-                target_editors,
-                extensions_to_install
-            )
+            self._install_extensions(target_editors, extensions_to_install)
 
         else:
             _LOGGER.error('The "install" command expects 1 or more arguments.')
