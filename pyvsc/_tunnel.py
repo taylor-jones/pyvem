@@ -6,10 +6,13 @@ import sys
 from socket import gethostname
 from getpass import getpass
 from fabric import Connection
+from rich.console import Console
 
+from pyvsc._config import rich_theme
 from pyvsc._containers import ConnectionParts, AttributeDict
 from pyvsc._logging import get_rich_logger
 
+_console = Console(theme=rich_theme)
 _LOGGER = get_rich_logger(__name__)
 
 

@@ -157,8 +157,10 @@ class Command(object):
         # must be implemented within each command subclass.
         try:
             self.run()
+            
         except Exception as e:
             _LOGGER.error(e)
+            raise(e)
         finally:
             # regardless of what happens, cleanup and created remote
             # directories and close the remote connection.

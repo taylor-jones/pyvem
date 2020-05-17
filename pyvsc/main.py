@@ -196,17 +196,22 @@ def main():
     # If so, pass it along to that command object to run. Otherwise, print
     # an error message and exit.
     command = get_command_obj(args.command)
+
     if isinstance(command, Command):
         command.invoke(parser, args)
+        _console.print('All done!')
+
     elif args.help:
         parser.print_help()
+
     else:
         _console.print('[error]"{}" is not a valid {} command[/].\n'.format(
             args.command, _PROG))
 
         # Check for fuzzy-ish matches. Limit to 50% matches or greater.
         similar = [x[0] for x in process.extract(
-            args.command, _COMMAND_NAMES_AND_ALIASES
+            query=args.command,
+            choices=_COMMAND_NAMES_AND_ALIASES
         ) if x[1] > 50]
 
         # If any similar-enough matches were found, print those suggestions

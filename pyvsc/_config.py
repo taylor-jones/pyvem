@@ -15,6 +15,7 @@ rich_theme = Theme({
     'keyword': 'bold bright_white',
     'var': 'cornflower_blue',
     'example': 'italic grey58',
+    'path': 'grey58',
     'error': 'bold red',
     'todo': 'bold bright_magenta on purple4',
 }, inherit=True)

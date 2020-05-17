@@ -75,19 +75,37 @@ class Extension():
         """
         downloaded_extension_paths = []
 
-        # download any extension pack items or any dependencies before
-        # downloading the current extension.
-        _LOGGER.info('{} has {} extensions in extension pack.'.format(
-            self.unique_id, len(self.extension_pack)))
+        # Check for extension dependencies and extension pack items.
+        num_dependencies = len(self.extension_dependencies)
+        num_extension_pack = len(self.extension_pack)
 
-        for index, extension in enumerate(self.extension_pack):
-            assert(isinstance(extension, Extension))
-            _LOGGER.info('{}: {}'.format(index + 1, extension.unique_id))
-            downloaded_extension_paths.extend(extension.download())
-            _LOGGER.warning(downloaded_extension_paths)
+        # Process any extension dependencies before the current extension.
+        if num_dependencies > 0:
+            _LOGGER.info('{} has {} extension dependencies.'.format(
+                self.unique_id, num_dependencies))
 
-        # download the current extension
+            for index, extension in enumerate(self.extension_dependencies):
+                downloaded_extension_paths.extend(
+                    extension.download(remote_dir, local_dir))
+
+            _LOGGER.debug('All {} dependencies processed'.format(
+                self.unique_id))
+
+        # Process extension pack items before the current extension.
+        if num_extension_pack > 0:
+            _LOGGER.info('{} has {} extensions in extension pack.'.format(
+                self.unique_id, num_extension_pack))
+
+            for index, extension in enumerate(self.extension_pack):
+                downloaded_extension_paths.extend(
+                    extension.download(remote_dir, local_dir))
+
+            _LOGGER.debug('All {} extension pack extensions processed'.format(
+                self.unique_id))
+
+        # Download the current extension.
         extension_name = self.unique_id
+        _LOGGER.info('Downloading {}'.format(extension_name))
 
         # If a specific version of the extension is known, append that version
         # to the name of the extension (for added specificity).
@@ -110,6 +128,7 @@ class Extension():
         # If the download request had any issues, then we won't try to transfer
         # the extension from the remote machine to the local machine.
         if response.exited != 0:
+            _LOGGER.error('Failed to download {}.'.format(extension_name))
             _LOGGER.error(response.stderr)
             return False
 
@@ -367,20 +386,16 @@ class MarketplaceExtension(Extension):
         match = dict_from_list_key(properties, key, value)
         extension_pack = []
 
-        # The extension pack is a comma-separated list in the JSON response.
-        # We'll need to split it to determine the individual extension names.
-        # Then we'll need to create Extension objects for each of the extension
-        # names in the extension pack.
         if match:
             extension_pack_string = match['value']
-            for extension_name in extension_pack_string.split(','):
-                extension_pack.append(
-                    get_extension(unique_id=extension_name, tunnel=self.tunnel))
+            extension_names = [x for x in extension_pack_string.split(',') if x]
 
-        # If no items we in the extension pack, just return the empty list.
-        # By returning an empty list here instead of None, we'll make it easier
-        # to iterate over this value when looking to download any extensions
-        # from the extension pack.
+            # Create a new Extension instance for each of the extensions in the
+            # extension pack and append those Extension objects to the
+            # extension_pack list.
+            for name in extension_names:
+                extension_pack.append(get_extension(name, self.tunnel))
+
         return extension_pack
 
 
@@ -388,7 +403,19 @@ class MarketplaceExtension(Extension):
         key = 'key'
         value = 'Microsoft.VisualStudio.Code.ExtensionDependencies'
         match = dict_from_list_key(properties, key, value)
-        return match['value'] if match else None
+        dependencies = []
+
+        if match:
+            dependencies_string = match['value']
+            extension_names = [x for x in dependencies_string.split(',') if x]
+
+            # Create a new Extension instance for each of the extensions and 
+            # append those Extension objects to the dependencies list.
+            for name in extension_names:
+                dependencies.append(get_extension(name, self.tunnel))
+
+        return dependencies
+
 
 
 
