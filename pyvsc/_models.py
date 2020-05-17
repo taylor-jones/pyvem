@@ -175,7 +175,8 @@ ExtensionQueryFlags = AttributeDict({
     'IncludeVersionProperties': 16,
     #
     # Excluding non-validated extensions will remove any extension versions
-    # that either are in the process of being validated or have failed validation.
+    # that either are in the process of being validated or have failed
+    # validation.
     #
     'ExcludeNonValidated': 32,
     #

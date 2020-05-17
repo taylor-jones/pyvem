@@ -173,6 +173,27 @@ class SupportedEditor(AttributeDict):
         return local_path
 
 
+    def get_engine(self):
+        """
+        Get the currently-installed version of this code editor.
+
+        Returns:
+            str -- The engine version of the editor or None if the editor
+            is not installed or not on the PATH.
+        """
+        try:
+            # check the installed version
+            output = subprocess.check_output([
+                self.command, '--version'
+            ], shell=False).splitlines()
+
+            # format the info about the currently installed version
+            return output[0].decode(_ENCODING)
+
+        except Exception as e:
+            return None
+
+
     @property
     def api_url(self):
         if self._api_url is not None:

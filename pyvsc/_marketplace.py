@@ -91,8 +91,8 @@ class Marketplace():
         }
 
         headers = {
-            'Accept': 'application/json;api-version=%s' % \
-                _MARKETPLACE_API_VERSION,
+            'Accept': 'application/json;api-version={}'.format(
+                _MARKETPLACE_API_VERSION),
             'Accept-Encoding': 'gzip',
             'Content-Type': 'application/json',
         }
@@ -118,7 +118,7 @@ class Marketplace():
             return []
 
 
-    def get_extension(self, unique_id, flags=[]):
+    def get_extension(self, unique_id, flags=[], filters=[]):
         """
         Get the marketplace response for a specific extension
 
@@ -143,13 +143,16 @@ class Marketplace():
             },
         ]
 
+        # Append any additional filters that were provided.
+        for filter in filters:
+            criteria.append(filter)
+
         extensions = self._extension_query(
             criteria=criteria,
             flags=flags or _MAERKETPLACE_DEFAULT_SEARCH_FLAGS
         )
 
         return extensions[0] if isinstance(extensions, list) else extensions
-
 
 
     def _rating(self, x):
@@ -159,39 +162,27 @@ class Marketplace():
 
     def _rating_count(self, x):
         count = dict_from_list_key(
-            x['statistics'],
-            'statisticName',
-            'ratingcount'
-        )
-
+            x['statistics'], 'statisticName', 'ratingcount')
         return count['value'] if count else 0
 
 
     def _engine(self, x):
         return '%s' % dict_from_list_key(
-            x['versions'][0]['properties'],
-            'key',
-            'Microsoft.VisualStudio.Code.Engine'
-        )['value']
+            x['versions'][0]['properties'], 'key',
+            'Microsoft.VisualStudio.Code.Engine')['value']
 
 
     def _dependencies(self, x):
         key = dict_from_list_key(
-            x['versions'][0]['properties'],
-            'key',
-            'Microsoft.VisualStudio.Code.ExtensionDependencies',
-        )
-
+            x['versions'][0]['properties'], 'key',
+            'Microsoft.VisualStudio.Code.ExtensionDependencies')
         return (key['value'] or 'None') if key else None
 
 
     def _extension_pack(self, x):
         key = dict_from_list_key(
-            x['versions'][0]['properties'],
-            'key',
-            'Microsoft.VisualStudio.Code.ExtensionPack',
-        )
-
+            x['versions'][0]['properties'], 'key',
+            'Microsoft.VisualStudio.Code.ExtensionPack')
         return (key['value'] or 'None') if key else None
 
 
@@ -222,8 +213,8 @@ class Marketplace():
             search_results {list} -- A list of search query results
         """
         def _unique_id(x):
-            return '%s.%s' % \
-                (x['publisher']['publisherName'], x['extensionName'])
+            return '{}.{}'.format(
+                x['publisher']['publisherName'], x['extensionName'])
 
         def _last_updated(x):
             return self._formatted_date(x['versions'][0]['lastUpdated'])
@@ -244,8 +235,8 @@ class Marketplace():
         ]
 
 
-    def _show_no_results(self):
-        print('Your search didn\'t match any extensions.')
+    def _show_no_results(self, text='Your search matched 0 extensions.'):
+        _console.print(text)
         return None
 
 
@@ -258,7 +249,7 @@ class Marketplace():
         """
         if not search_results:
             return self._show_no_results()
-    
+
         # Print the results using a rich table
         table = Table(box=box.SQUARE)
         table.add_column('Extension ID', justify='left', no_wrap=True)
@@ -273,12 +264,32 @@ class Marketplace():
         _console.print(table)
 
 
-    def get_extension_info(
-        self,
-        unique_id,
-        flags = [ExtensionQueryFlags.AllAttributes]
-    ):
+    def get_extension_latest_version(self, unique_id, engine_version):
+        flags = [ExtensionQueryFlags.IncludeLatestVersionOnly]
+
+        # _LOGGER.critical('unique_id: {}'.format(unique_id))
+        # _LOGGER.critical('engine_version: {}'.format(engine_version))
+
+        filters = [{
+            'filterType': ExtensionQueryFilterType.InstallationTargetVersion,
+            'value': engine_version,
+        }]
+
+        response = self.get_extension(unique_id, flags=flags)
+
+        if not response:
+            return self._show_no_results()
+        elif isinstance(response, str):
+            _LOGGER.error(response)
+
+        return response
+
+
+    def get_extension_info(self, unique_id,
+                           flags=[ExtensionQueryFlags.AllAttributes]):
+
         e = self.get_extension(unique_id, flags=flags)
+
         if not e:
             return self._show_no_results()
         elif isinstance(e, str):
