@@ -1,8 +1,6 @@
 from __future__ import print_function, absolute_import
 
 import json
-import logging
-
 from textwrap import dedent
 from datetime import datetime
 from functools import reduce
@@ -11,6 +9,7 @@ from rich.console import Console
 from rich.table import Table
 from rich import box
 
+from pyvsc._logging import get_rich_logger
 from pyvsc._curler import CurledRequest
 from pyvsc._models import (
     ExtensionQueryFilterType,
@@ -31,9 +30,11 @@ _MAERKETPLACE_DEFAULT_SEARCH_FLAGS = [
     ExtensionQueryFlags.IncludeLatestVersionOnly,
 ]
 
-_LOGGER = logging.getLogger(__name__)
 _curled = CurledRequest()
 _console = Console()
+_LOGGER = get_rich_logger(__name__, console=_console)
+
+
 
 class Marketplace():
     def __init__(self, tunnel=None):
@@ -184,6 +185,16 @@ class Marketplace():
         return (key['value'] or 'None') if key else None
 
 
+    def _extension_pack(self, x):
+        key = dict_from_list_key(
+            x['versions'][0]['properties'],
+            'key',
+            'Microsoft.VisualStudio.Code.ExtensionPack',
+        )
+
+        return (key['value'] or 'None') if key else None
+
+
     def _installs(self, x):
         return human_number_format(float(dict_from_list_key(
             x['statistics'], 'statisticName', 'install')['value']))
@@ -267,11 +278,11 @@ class Marketplace():
         unique_id,
         flags = [ExtensionQueryFlags.AllAttributes]
     ):
-        ex = self.get_extension(unique_id, flags=flags)
-        if not ex:
+        e = self.get_extension(unique_id, flags=flags)
+        if not e:
             return self._show_no_results()
-        elif isinstance(ex, str):
-            _LOGGER.error(ex)
+        elif isinstance(e, str):
+            _LOGGER.error(e)
             return
 
         def _tags(x):
@@ -286,25 +297,27 @@ class Marketplace():
 
         {:60}
         {:60}
+        {:60}
 
         {:60}
         {:60}
 
         {}
         '''.format(
-            'Name: %s' % ex['displayName'],
-            'Releases: %s' % len(ex['versions']),
-            'Publisher: %s' % ex['publisher']['publisherName'],
-            'Release Date: %s' % self._formatted_date(ex['releaseDate']),
-            'Latest Version: %s' % ex['versions'][0]['version'],
-            'Last Updated: %s' % self._formatted_date(ex['lastUpdated']),
-            'Rating: %s (%s)' % (self._rating(ex), self._rating_count(ex)),
-            'Installs: %s' % self._installs(ex),
-            'Required VSCode Version: %s' % self._engine(ex),
-            'Extension Dependencies: %s' % self._dependencies(ex),
-            'Categories: %s' % ', '.join(ex['categories']),
-            'Tags: %s' % _tags(ex),
-            ex['shortDescription']
+            'Name: %s' % e['displayName'],
+            'Releases: %s' % len(e['versions']),
+            'Publisher: %s' % e['publisher']['publisherName'],
+            'Release Date: %s' % self._formatted_date(e['releaseDate']),
+            'Latest Version: %s' % e['versions'][0]['version'],
+            'Last Updated: %s' % self._formatted_date(e['lastUpdated']),
+            'Rating: %s (%s)' % (self._rating(e), self._rating_count(e)),
+            'Installs: %s' % self._installs(e),
+            'Required VSCode Version: %s' % self._engine(e),
+            'Extension Dependencies: %s' % self._dependencies(e),
+            'Extension Pack: %s' % self._extension_pack(e),
+            'Categories: %s' % ', '.join(e['categories']),
+            'Tags: %s' % _tags(e),
+            e['shortDescription']
         )
 
         print(dedent(output))

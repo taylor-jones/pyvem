@@ -1,9 +1,12 @@
 from __future__ import print_function, absolute_import
-import sys
+
 from pyvsc._command import Command
 from pyvsc._config import _PROG, _VERSION
 from pyvsc._help import Help
+from pyvsc._logging import get_rich_logger
 
+
+_LOGGER = get_rich_logger(__name__)
 _HELP = Help(
     name='version',
     brief='shows the {prog} version'.format(prog=_PROG),
@@ -32,8 +35,10 @@ class VersionCommand(Command):
         """
         Just print the program's version and exit.
         """
+        from sys import exit
+
         print(_VERSION)
-        sys.exit(0)
+        exit(0)
 
 
 #

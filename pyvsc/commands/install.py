@@ -1,20 +1,21 @@
 from __future__ import print_function, absolute_import
 
 import configargparse
-import logging
-
 from fuzzywuzzy import process
+
 from pyvsc._command import Command
 from pyvsc._config import _PROG
 from pyvsc._help import Help
-from pyvsc._util import props
+from pyvsc._util import props, delimit
 from pyvsc._editor import SupportedEditorCommands, get_editors
 from pyvsc._extension import get_extension
+from pyvsc._logging import get_rich_logger
+
 
 _FUZZY_SORT_CONFIDENCE_THRESHOLD = 85
 _AVAILABLE_EDITOR_KEYS = SupportedEditorCommands.keys()
 _AVAILABLE_EDITOR_VALUES = SupportedEditorCommands.values()
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = get_rich_logger(__name__)
 
 
 _HELP = Help(
@@ -83,6 +84,16 @@ class InstallCommand(Command):
         extensions = set()
 
         for item in items:
+            # As a rule-of-thumb, we'll assume any item having a period
+            # in it's name is an extension. It's possible that the user
+            # included a period in the name of an editor they wish to install,
+            # but many extensions include names having patterns that would
+            # otherwise match one of the editors if we don't assume periods
+            # are exclusive to extensin names.
+            if '.' in item:
+                extensions.add(item)
+                continue
+
             # find the single best match from the list of known, supported
             # code editors (that matches above the specified threshold)
             try:
@@ -295,15 +306,27 @@ class InstallCommand(Command):
 
         for req in extensions:
             ext = get_extension(req, tunnel=Command.tunnel)
-            extension_path = ext.download(remote_output, local_output)
 
-            # install the extension to all target editors
-            for editor_name in target_editors:
-                editor = system_editors[editor_name]
-                editor.install_extension(extension_path)
+            # get a list of any extension paths added as a result of
+            # downloading this extension. This is a list an not a string,
+            # because the extension we download may have been an extension pack
+            # or it may have dependencies. This means that mutliple downloads
+            # may result from downloading this single extension. In that case,
+            # we'll need to install each of the downloaded extensions.
+            #
+            # In the case that this is an extension with no dependencies, then
+            # we'll just receive a list having one path in it.
+            extension_paths = ext.download(remote_output, local_output)
 
-            # add the extension to the list of temporary files to remove
-            self.store_temporary_file_path(extension_path)
+            # Install the extension at each path to each of the target editors.
+            for path in extension_paths:
+                for editor_name in target_editors:
+                    editor = system_editors[editor_name]
+                    editor.install_extension(path)
+
+                # add the extension to the list of temporary files to remove
+                # once all processing has finished.
+                self.store_temporary_file_path(path)
 
 
     def run(self, *args, **kwargs):
@@ -331,6 +354,9 @@ class InstallCommand(Command):
             editors_to_install, extensions_to_install = \
                 self._parse_editors_from_extensions(args.extensions_or_editors)
 
+            _LOGGER.debug('Editors to Install: {}'.format(delimit(editors_to_install)))
+            _LOGGER.debug('Extensions to Install: {}'.format(delimit(extensions_to_install)))
+
             # If any extensions were requested for install, we'll also need to
             # determine where those extensions should be installed.
             if extensions_to_install:
@@ -353,8 +379,8 @@ class InstallCommand(Command):
             # validate any target editors
             target_editors = self._validate_target_editors(
                 system_editors,
-                target_editors
-            )
+                target_editors)
+            _LOGGER.debug('Target Editors: {}'.format(delimit(target_editors)))
 
             # install any requested extensions
             self._install_extensions(

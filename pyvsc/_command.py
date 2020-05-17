@@ -3,7 +3,6 @@ from textwrap import dedent
 
 import os
 import pathlib
-import logging
 from rich.console import Console
 from rich.traceback import install as install_rich_traceback
 
@@ -11,10 +10,13 @@ from pyvsc._tunnel import Tunnel
 from pyvsc._marketplace import Marketplace
 from pyvsc._help import Help
 from pyvsc._config import _PROG, rich_theme
+from pyvsc._logging import get_rich_logger
 
+_LOGGER = get_rich_logger(__name__)
 install_rich_traceback()
 
 # TODO: Validate output directory
+
 
 class Command(object):
     """
@@ -22,7 +24,6 @@ class Command(object):
     """
     console = Console(theme=rich_theme)
     tunnel = Tunnel()
-    log = logging.getLogger(__name__)
     marketplace = None
     main_parser = None
     main_options = None
@@ -41,8 +42,8 @@ class Command(object):
         # we won't delete it.
         self.created_local_output_dir = None
 
-        # Ensure all sub-commands have instantiated a Help instance
-        # for their 'help' attribute.
+        # Ensure all sub-commands have instantiated a Help instance for their
+        # 'help' attribute.
         assert(isinstance(self.help, Help))
 
 
@@ -60,7 +61,7 @@ class Command(object):
 
     def remove_temporary_files(self):
         """
-        Removes all temporary files that were created during processing.
+        Remove all temporary files that were created during processing.
         """
         if not Command.main_options.no_cleanup:
             for f in Command.temporary_file_paths:
@@ -69,20 +70,21 @@ class Command(object):
 
     def ensure_output_dirs_exist(self):
         """
-        Ensures that both the temprorary remote directory and the temproray
+        Ensure that both the temprorary remote directory and the temproray
         local directory exist.
 
         Returns:
             bool -- True if we could ensure both the remote and local dirs
             exist, False if not.
         """
-        return (self.ensure_local_output_dir_exists()
-                and self.ensure_remote_output_dir_exists())
+        local_exists = self.ensure_local_output_dir_exists()
+        remote_exists = self.ensure_remote_output_dir_exists()
+        return local_exists and remote_exists
 
 
     def ensure_remote_output_dir_exists(self):
         """
-        Ensures the temporary remote directory that will be used for storing
+        Ensure the temporary remote directory that will be used for storing
         any downloads on the remote system exists.
 
         Returns:
@@ -94,7 +96,7 @@ class Command(object):
 
     def ensure_local_output_dir_exists(self):
         """
-        Creates the output directory provided by the original vem command
+        Create the output directory provided by the original vem command
 
         Returns:
             bool -- True if the output directory was ensured to exist (whether
@@ -123,7 +125,7 @@ class Command(object):
 
     def invoke(self, main_parser, main_options):
         """
-        Prepares a Command object's static elements in order to make them
+        Prepare a Command object's static elements in order to make them
         available to all Command subclasses. Then invokes the run() command
         on the object to run the vem command that was actually called.
 
@@ -156,7 +158,7 @@ class Command(object):
         try:
             self.run()
         except Exception as e:
-            self.log.error(e)
+            _LOGGER.error(e)
         finally:
             # regardless of what happens, cleanup and created remote
             # directories and close the remote connection.
@@ -167,7 +169,7 @@ class Command(object):
 
     def show_help(self):
         """
-        Invokes the print() method on a Command's help object instance.
+        Invoke the print() method on a Command's help object instance.
 
         NOTE: This expects that each Command sub-class implements a Help
         class instance
@@ -177,10 +179,14 @@ class Command(object):
 
     def show_error(self, text, **kwargs):
         """
-        Prints a styled error message, entirely using the rich_theme error
-        styling. This is suitable for text that is intended to all use the
+        Print a styled error using the rich_theme error styling and a rich
+        console. This is suitable for text that is intended to all use the
         error style. For error messages that need for fine-grained output,
         it's probably better to write the custom message message
+
+        NOTE: The difference between this and the logging.error is that the
+        console error does not include the logging formatting (like the module
+        name and timestamp). This is just for direct error messages.
 
         Arguments:
             text {str} -- The error message to output

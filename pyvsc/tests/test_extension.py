@@ -9,7 +9,6 @@ from pyvsc._extension import (
     Extension,
     MarketplaceExtension,
     GithubExtension,
-    ExtensionSourceTypes,
     get_extension
 )
 

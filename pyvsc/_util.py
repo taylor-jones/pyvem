@@ -193,3 +193,28 @@ def iso_now(include_microseconds=False, format_for_path=True):
         output = output.replace(':', '')
 
     return output
+
+
+def delimit(iterable, delimiter=', ', falsy_return_value=''):
+    """
+    Returns a delimited string from an iterable, if the iterable is able
+    to be successfully delimited. If not, returns a default falsy return
+    value.
+
+    Arguments:
+        iterable {Iterable} -- An iterable python type (e.g. list, set, etc.)
+
+    Keyword Arguments:
+        delimiter {str} -- The delimiter to use between items in the delimited
+            string (default: {', '})
+        falsy_return_value {str} -- The value to return if the iterable
+            is not able to be delimited, is None or otherwise falsy
+            (default: {''})
+
+    Returns:
+        [type] -- [description]
+    """
+    try:
+        return delimiter.join(iterable)
+    except Exception as e:
+        return falsy_return_value

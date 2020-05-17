@@ -3,14 +3,14 @@
 from __future__ import print_function, absolute_import
 
 import sys
-import logging
-
 from socket import gethostname
-from fabric import Connection
 from getpass import getpass
-from pyvsc._containers import ConnectionParts, AttributeDict
+from fabric import Connection
 
-_LOGGER = logging.getLogger(__name__)
+from pyvsc._containers import ConnectionParts, AttributeDict
+from pyvsc._logging import get_rich_logger
+
+_LOGGER = get_rich_logger(__name__)
 
 
 class Tunnel:

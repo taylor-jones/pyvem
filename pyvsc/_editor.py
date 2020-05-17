@@ -6,7 +6,6 @@ import os
 import re
 import subprocess
 import json
-import logging
 
 from distutils.spawn import find_executable
 from pyvsc._util import expanded_path, truthy_list
@@ -14,6 +13,7 @@ from pyvsc._containers import AttributeDict
 from pyvsc._compat import is_py3, popen, split
 from pyvsc._machine import platform_query
 from pyvsc._curler import CurledRequest
+from pyvsc._logging import get_rich_logger
 
 
 _ENCODING = 'utf-8'
@@ -38,7 +38,7 @@ _MARKETPLACE_EDITOR_DISTRO_PATTERN = platform_query(
     deb32='linux-deb-ia32'
 )
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = get_rich_logger(__name__)
 _curled = CurledRequest()
 
 

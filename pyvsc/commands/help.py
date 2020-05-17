@@ -1,9 +1,9 @@
 from __future__ import print_function, absolute_import
-import sys
 
 from pyvsc._command import Command
 from pyvsc._config import _PROG
 from pyvsc._help import Help
+from pyvsc._logging import get_rich_logger
 
 # Import each of the other commands so their 'help' methods can be invoked
 # from here. This is the only command that needs to import all of the other
@@ -18,20 +18,21 @@ from pyvsc.commands.update import update_command
 from pyvsc.commands.version import version_command
 
 
+_LOGGER = get_rich_logger(__name__)
 _HELP = Help(
     name='help',
     brief='Show help documentation',
     synopsis='{prog} help <command>'.format(prog=_PROG),
-    description='' \
-        'This command will show help documentation for other {prog} ' \
-        'commands. If the provided [keyword]<command>[/] is not valid or no ' \
-        'help documentation exists, the help command will display:\n' \
-        '\t"No help documentation is available for the command ' \
-        '[keyword]<command>[/]"' \
-        '\n\n' \
-        'If no command (or no valid command) is passed to the help command, ' \
-        'then {prog}\'s default help output is printed to stdout.' \
-        ''.format(prog=_PROG)
+    description='This command will show help documentation for other {prog} '
+                'commands. If the provided [keyword]<command>[/] is not valid '
+                'or no help documentation exists, the help command will '
+                'display:\n'
+                '\t"No help documentation is available for the command '
+                '[keyword]<command>[/]"'
+                '\n\n'
+                'If no command (or no valid command) is passed to the help '
+                'command, then {prog}\'s default help output is printed to '
+                'stdout.'.format(prog=_PROG)
 )
 
 
@@ -47,27 +48,29 @@ class HelpCommand(Command):
         """
         Implements the `help` commands functionality.
         """
+        from sys import exit, modules
+
         # If the `help` command didn't get any arguments, just show the
         # default vem help screen and then exit.
         args = Command.main_options.args
         if not args:
             Command.main_parser.print_help()
-            sys.exit(1)
+            exit(1)
 
         # Otherwise, parse the command name.
         command_name = args[0]
 
-        # command = getattr(sys.modules[__name__], '%s_command' % command_name)
+        # command = getattr(modules[__name__], '%s_command' % command_name)
         # command.show_help()
 
         try:
-            command = getattr(
-                sys.modules[__name__], '%s_command' % command_name)
+            command = getattr(modules[__name__], '{}_command'.format(
+                command_name))
             command.show_help()
         except Exception:
             self.console.print_exception()
-            print('No help documentation is available for command: %s' \
-                % command_name)
+            print('No help documentation is available for command: {}'.format(
+                command_name))
 
 
 #

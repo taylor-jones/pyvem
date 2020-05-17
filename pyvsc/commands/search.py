@@ -7,6 +7,8 @@ from pyvsc._command import Command
 from pyvsc._config import _PROG
 from pyvsc._models import ExtensionQuerySortByTypes
 from pyvsc._help import Help
+from pyvsc._logging import get_rich_logger
+
 
 # Reference Configurations
 _FUZZY_SORT_CONFIDENCE_THRESHOLD = 70
@@ -27,7 +29,7 @@ _SEARCH_CATEGORIES = [
     'Themes'
 ]
 
-
+_LOGGER = get_rich_logger(__name__)
 _HELP = Help(
     name='search',
     brief='Search the VSCode Marketplace',
@@ -168,14 +170,14 @@ class SearchCommand(Command):
                 sorted_sort_options = \
                     sorted(list(ExtensionQuerySortByTypes.keys()))
 
-                self.log.warning('"{}" did not match a known sort column.'
-                                 ''.format(args.sort_by))
-                self.log.warn('Available sort columns:\n{}\n\n'.format(
+                _LOGGER.warning('"{}" did not match a known sort column.'
+                                ''.format(args.sort_by))
+                _LOGGER.warn('Available sort columns:\n{}\n\n'.format(
                     ', '.join(sorted_sort_options)))
 
                 sort_by = _DEFAULT_SORT_BY_ARGUMENT
             else:
-                self.log.debug('Sorting by "{}"'.format(sort_name))
+                _LOGGER.debug('Sorting by "{}"'.format(sort_name))
                 sort_by = sort_num
 
             # send the search query to the marketplace
@@ -187,7 +189,7 @@ class SearchCommand(Command):
             )
 
         else:
-            self.log.error('The "search" command expects a query.')
+            _LOGGER.error('The "search" command expects a query.')
             parser.print_usage()
 
 

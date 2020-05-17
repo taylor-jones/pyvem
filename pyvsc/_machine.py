@@ -1,8 +1,6 @@
-import logging
+from pyvsc._logging import get_rich_logger
 
-_LOGGER = logging.getLogger(__name__)
-_LOGGER.setLevel(logging.NOTSET)
-
+_LOGGER = get_rich_logger(__name__)
 _DARWIN_INSTALL_LOCATION = '/Applications'
 
 """

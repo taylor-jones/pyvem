@@ -2,8 +2,10 @@ from __future__ import print_function, absolute_import
 from pyvsc._command import Command
 from pyvsc._config import _PROG
 from pyvsc._help import Help
+from pyvsc._logging import get_rich_logger
 
 
+_LOGGER = get_rich_logger(__name__)
 _HELP = Help(
     name='list',
     brief='List installed extension(s)',
