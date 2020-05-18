@@ -272,37 +272,28 @@ class SupportedEditor(AttributeDict):
         if self._can_update is not None:
             return self._can_update
 
-        # if the editor isn't installed, by default it can be updated.
-        elif not self.installed:
-            self._can_update = True
-            return self._can_update
-
         try:
-            # check the installed version
-            output = subprocess.check_output([
-                self.command, '--version'
-            ], shell=False).splitlines()
+            self.version = ''
+            if self.installed:
+                # check the installed version
+                output = subprocess.check_output([
+                    self.command, '--version'
+                ], shell=False).splitlines()
 
-            # format the info about the currently installed version
-            self.version = output[0].decode(_ENCODING)
-            self.hash = output[1].decode(_ENCODING)
-
-            _LOGGER.debug('{} installed version: {}'.format(
-                self.editor_id, self.version))
+                # format the info about the currently installed version
+                self.version = output[0].decode(_ENCODING)
 
             # check the latest remote version
             latest = self.latest
-            remote_version = latest['name']
-            remote_hash = latest['version']
+            self.latest_version = latest.get('name')
 
-            _LOGGER.debug('{} latest version: {}'.format(
-                self.editor_id, remote_version))
+            _LOGGER.debug('{} | installed: {}, latest: {}'.format(
+                self.editor_id, self.version, self.latest_version))
 
             # if the installed version doesn't match the latest remote version
             # or the installed hash doesn't match the latest remote hash,
             # we'll assume the editor can be updated.
-            self._can_update = \
-                self.version != remote_version or self.hash != remote_hash
+            self._can_update = self.version != self.latest_version
 
         except (TypeError, ValueError) as e:
             _LOGGER.debug(e)

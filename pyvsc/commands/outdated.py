@@ -176,13 +176,7 @@ class OutdatedCommand(Command):
         return requested_targets
 
 
-    def _get_installed_editors(self):
-        # return {v for k, v in self.system_editors if v.installed}
-        # return self.system_editors.values()
-        # TODO:
-
-
-    def _get_outdated_extensions_for_editor(self, editor_id):
+    def _get_outdated_extensions_for_editor(self, editor_id, extensions=[]):
         """
         Queries the VSCode marketplace to check for newer versions of any of
         the extensions installed for a given code editor.
@@ -197,9 +191,17 @@ class OutdatedCommand(Command):
         editor = self.system_editors[editor_id]
         outdated = []
 
-        for extension in editor.get_extensions():
+        # if no extensions were specified, check for updates to all of the
+        # extensions for the current editor. Otherwise, just check for updates
+        # to the specified extensions.
+        all_extensions = editor.get_extensions()
+        extensions_to_check = (
+            all_extensions if not extensions
+            else [x for x in all_extensions if x['unique_id'] in extensions])
+
+        for extension in extensions_to_check:
             uid = extension['unique_id']
-            _LOGGER.info('Checking {}...'.format(uid))
+            _LOGGER.info('Checking extension: {}'.format(uid))
 
             installed_version = extension['version']
             response = Command.marketplace.get_extension_latest_version(
@@ -216,7 +218,7 @@ class OutdatedCommand(Command):
         return outdated
 
 
-    def _get_outdated_extensions_for_editors(self, editor_ids):
+    def _get_outdated_extensions_for_editors(self, editor_ids, extensions=[]):
         """
         Iterates over each of the target editors, inspects each of the
         extensions for that editor, then prints a rich table showing a list
@@ -226,13 +228,15 @@ class OutdatedCommand(Command):
             editor_ids {list} -- A list of supported editor ids.
         """
         for id in editor_ids:
-            table = Table(box=box.SQUARE, title=id)
+            table = Table(box=box.SQUARE, title=id, title_style='bold magenta')
             table.add_column('Extension ID', justify='left', no_wrap=True)
             table.add_column('Installed', justify='right', no_wrap=True)
             table.add_column('Latest', justify='right', no_wrap=True)
             table.add_column('Last Update', justify='right', no_wrap=True)
 
-            outdated_extensions = self._get_outdated_extensions_for_editor(id)
+            outdated_extensions = self._get_outdated_extensions_for_editor(
+                id, extensions)
+
             if outdated_extensions:
                 for ext in outdated_extensions:
                     table.add_row(
@@ -247,9 +251,33 @@ class OutdatedCommand(Command):
                 _LOGGER.info('All extensions are up to date!')
 
 
-    def _get_outdated_editors(self, installed_editors):
-        pp(installed_editors)
+    def _get_outdated_editors(self, show_non_installed=False):
+        """
+        Prints the Code editors that can be updated.
 
+        Keyword Arguments:
+            show_non_installed {bool} -- If true, this will also print
+            code editors that are not installed. (default: {False})
+        """
+        outdated = []
+        for editor in self.system_editors.values():
+            _LOGGER.debug(editor.can_update)
+            if editor.can_update and (show_non_installed or editor.installed):
+                outdated.append((
+                    editor.editor_id,
+                    editor.version or '---',
+                    editor.latest_version))
+
+        if outdated:
+            # print the rich table of any outdated editors
+            table = Table(box=box.SQUARE)
+            table.add_column('Editor', justify='left', no_wrap=True)
+            table.add_column('Installed', justify='right', no_wrap=True)
+            table.add_column('Latest', justify='right', no_wrap=True)
+
+            for i in outdated:
+                table.add_row(*i)
+            _console.print(table)
 
 
     def run(self, *args, **kwargs):
@@ -260,7 +288,7 @@ class OutdatedCommand(Command):
         args.target = [Command.main_options.target]
 
         # Remove the leading "outdated" command from the arguments
-        args.extensions_or_editors = args.extensions[1:]
+        args.extensions = args.extensions[1:]
 
         # get a handle to the current system editors
         self.system_editors = get_editors(Command.tunnel)
@@ -274,32 +302,11 @@ class OutdatedCommand(Command):
 
         # check for the flag indicating to check all editors but ONLY editors
         if args.editors:
-            installed_editors = self._get_installed_editors()
-            self._get_outdated_editors(installed_editors)
+            self._get_outdated_editors()
         else:
             # Get the outdated extensions
-            self._get_outdated_extensions_for_editors(target_editors)
-
-        # Print the results in a rich table
-
-
-
-        # pp(args)
-        # pp(remainder)
-        # pp(Command.main_options)
-        # pp(target_editors)
-
-
-
-        # # check for the flag indicating to check all editors but ONLY editors
-        # if args.editors:
-        #     installed_editors = self._get_installed_editors(system_editors)
-
-        # check for the target editors
-
-
-        # check if any extensions were specified
-        extensions = args.extensions
+            self._get_outdated_extensions_for_editors(
+                target_editors, args.extensions)
 
 
 #
