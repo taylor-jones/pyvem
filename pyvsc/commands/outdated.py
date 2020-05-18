@@ -86,8 +86,8 @@ class OutdatedCommand(Command):
 
     def get_command_parser(self, *args, **kwargs):
         """
-        Builds and returns an argument parser that is specific to the "install"
-        command.
+        Builds and returns an argument parser that is specific to the 
+        "outdated" command.
 
         Returns:
             configargparse.ArgParser
@@ -232,7 +232,7 @@ class OutdatedCommand(Command):
             all_extensions if not extensions
             else [x for x in all_extensions if x['unique_id'] in extensions])
 
-        # Send a warning for any extensions that were specified but arent'
+        # Send a warning for any extensions that were specified but arent
         # installed to the current editor.
         for x in extensions:
             if x not in extensions_to_check:
