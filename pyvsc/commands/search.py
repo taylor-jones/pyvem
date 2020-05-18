@@ -147,7 +147,6 @@ class SearchCommand(Command):
 
 
     def run(self, *args, **kwargs):
-        # TODO: Clean this function up. It's a bit too messy.
         """
         Implements the "search" command's functionality. Overrides the
         inherited run() method in the parent Command class.
@@ -172,7 +171,7 @@ class SearchCommand(Command):
 
                 _LOGGER.warning('"{}" did not match a known sort column.'
                                 ''.format(args.sort_by))
-                _LOGGER.warn('Available sort columns:\n{}\n\n'.format(
+                _LOGGER.warning('Available sort columns:\n{}\n\n'.format(
                     ', '.join(sorted_sort_options)))
 
                 sort_by = _DEFAULT_SORT_BY_ARGUMENT
@@ -185,8 +184,7 @@ class SearchCommand(Command):
             Command.marketplace.search_extensions(
                 query_string,
                 sort_by=sort_by,
-                page_size=args.count
-            )
+                page_size=args.count)
 
         else:
             _LOGGER.error('The "search" command expects a query.')
