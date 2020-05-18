@@ -211,8 +211,6 @@ class SupportedEditor(AttributeDict):
     @property
     def latest(self):
         if self._latest is None:
-            _LOGGER.debug('Latest {} attributes not yet discovered.'.format(
-                self.editor_id))
             curl_request = _curled.get(self.api_url)
             response = self.tunnel.run(curl_request)
 
@@ -220,9 +218,6 @@ class SupportedEditor(AttributeDict):
                 self._latest = json.loads(response.stdout)
             else:
                 _LOGGER.error(response.stderr)
-        else:
-            _LOGGER.debug('Latest {} attributes already discovered.'.format(
-                self.editor_id))
 
         return self._latest
 
