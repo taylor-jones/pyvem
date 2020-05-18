@@ -12,10 +12,9 @@ from pyvsc._help import Help
 from pyvsc._config import _PROG, rich_theme
 from pyvsc._logging import get_rich_logger
 
+
 _LOGGER = get_rich_logger(__name__)
 install_rich_traceback()
-
-# TODO: Validate output directory
 
 
 class Command(object):
@@ -28,7 +27,8 @@ class Command(object):
     main_parser = None
     main_options = None
 
-    # Keep track of temporary files created during execution
+    # Keep track of temporary files created during execution.
+    # These will be removed at the end of processing.
     temporary_file_paths = []
 
 
@@ -114,7 +114,8 @@ class Command(object):
         try:
             pathlib.Path(Command.main_options.output_dir).mkdir(
                 parents=True,
-                exist_ok=False)
+                exist_ok=False
+            )
 
             self.created_local_output_dir = True
             return True
@@ -157,10 +158,11 @@ class Command(object):
         # must be implemented within each command subclass.
         try:
             self.run()
-            
+
         except Exception as e:
             _LOGGER.error(e)
             raise(e)
+
         finally:
             # regardless of what happens, cleanup and created remote
             # directories and close the remote connection.
