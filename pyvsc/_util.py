@@ -41,7 +41,7 @@ def resolved_path(p):
         str
     """
     from os import path
-    return path.realpath(path.normpath(path.expandvars(path.expanduser(p))))
+    return path.realpath(path.expandvars(path.expanduser(p)))
 
 
 def expanded_path(p):
@@ -218,3 +218,47 @@ def delimit(iterable, delimiter=', ', falsy_return_value=''):
         return delimiter.join(iterable)
     except Exception as e:
         return falsy_return_value
+
+
+def get_confirmation(question):
+    """
+    Prompts for a "yes" or "no" answer until one is received.
+
+    Arguments:
+        question {str} -- The prompt question
+
+    Returns:
+        bool -- True if the user answered "yes". False if "no"
+    """
+    question = '{} [y/n]: '.format(question)
+    answer = None
+    while answer not in ['y', 'yes', 'n', 'no']:
+        answer = str(input(question)).lower().strip()
+    return answer[0] == 'y'
+
+
+def get_response(prompt, default=None):
+    """
+    Prompts the user for a response. If a default value is provided, the user
+    if allowed to provide an empty response, which will return the default.
+    If no default value is provided, the function continues to prompt the user
+    until a non-empty response is received.
+
+    Arguments:
+        prompt {str} -- The prompt value
+        default {str|None} -- The default value to include in the prompt, which
+            will be the value returned if the user does not otherwise provde a
+            response.
+
+    Returns:
+        str -- A non-empty response from the user.
+    """
+    if default:
+        prompt = '{} ({}): '.format(prompt, default)
+    else:
+        prompt = '{}: '.format(prompt)
+
+    answer = None
+    while not answer or len(answer) == 0:
+        answer = str(input(prompt)).strip() or default
+    return answer

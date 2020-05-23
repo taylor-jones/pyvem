@@ -5,7 +5,6 @@ import base64
 
 from uuid import uuid4
 from cryptography.fernet import Fernet
-
 from pyvsc._config import _DEFAULT_SSH_PORT, _DEFAULT_SSH_USER
 
 
@@ -18,7 +17,6 @@ class AttributeDict(dict):
     __delattr__ = dict.__delitem__
 
 
-
 # Regex pattern to parse the components of a SSH connection string.
 CONNECTION_STRING_RE_PATTERN = re.compile(
     r'(?:(?P<username>.*?)'
@@ -26,6 +24,7 @@ CONNECTION_STRING_RE_PATTERN = re.compile(
     r'(?P<hostname>[^:\/\s]+)'
     r'(?::(?P<port>\d+))?'
 )
+
 
 def ConnectionParts(hostname, username=None, port=None, password=None):
     """
@@ -44,7 +43,6 @@ def ConnectionParts(hostname, username=None, port=None, password=None):
         AttributeDict
     """
     cipher = Fernet(Fernet.generate_key())
-    
     return AttributeDict({
         'hostname': hostname,
         'username': username or _DEFAULT_SSH_USER,

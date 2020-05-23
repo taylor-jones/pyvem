@@ -13,7 +13,8 @@ from pyvsc._config import _PROG, rich_theme
 from pyvsc._logging import get_rich_logger
 
 
-_LOGGER = get_rich_logger(__name__)
+_console = Console(theme=rich_theme)
+_LOGGER = get_rich_logger(__name__, console=_console)
 install_rich_traceback()
 
 
@@ -21,7 +22,6 @@ class Command(object):
     """
     Abstract base command class from which all actionable commands inherit.
     """
-    console = Console(theme=rich_theme)
     tunnel = Tunnel()
     marketplace = None
     main_parser = None
@@ -157,7 +157,8 @@ class Command(object):
         # run() for whichever Command subclass was invoked. The run() method
         # must be implemented within each command subclass.
         try:
-            self.run()
+            if self.run():
+                _console.print('[success]All done![/]')
 
         except Exception as e:
             _LOGGER.error(e)
@@ -199,14 +200,26 @@ class Command(object):
         arguments that console.print() supports are supported here as well.
         """
         kwargs.setdefault('highlight', False)
-        self.console.print(text, style=rich_theme.styles['error'], **kwargs)
+        _console.print(text, style=rich_theme.styles['error'], **kwargs)
 
 
-    # This needs to be implemented in each of the sub-classes
     def get_command_parser(self, *args, **kwargs):
+        """
+        Implements parsing subcommands within a particular command.
+        NOTE: This needs to be implemented in each of the sub-classes
+
+        Raises:
+            NotImplementedError: [description]
+        """
         raise NotImplementedError
 
 
-    # This needs to be implemented in each of the sub-classes
     def run(self, *args, **kwargs):
+        """
+        Implements the funcionality of a particular command.
+        NOTE: This needs to be implemented in each of the sub-classes
+
+        Raises:
+            NotImplementedError: [description]
+        """
         raise NotImplementedError
