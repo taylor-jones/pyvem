@@ -121,10 +121,14 @@ class ConfigCommand(Command):
         if not self.conf_file:
             question = 'No {} file was found. Would you like to create ' \
                        'one?'.format(rc_file)
+
+            # check if the user wants to create a .vimrc file
             if get_confirmation(question):
                 rc_home = '~/{}'.format(rc_file)
-                self.conf_file = resolved_path(
-                    get_response('Configuration file', rc_home))
+                rc_file = get_response('Configuration file', rc_home)
+                self.conf_file = resolved_path(rc_file)
+
+                # create the config file
                 with open(self.conf_file, 'w+'):
                     pass
             else:
@@ -231,6 +235,9 @@ class ConfigCommand(Command):
         """
         Implements the actual behavior of calling "vem config"
         """
+        # Update the logger to apply the log-level from the main options
+        self.apply_log_level(_LOGGER)
+
         # Create a new parser to parse the config command
         parser = self.get_command_parser()
         args, _ = parser.parse_known_args()
@@ -263,5 +270,4 @@ class ConfigCommand(Command):
 #
 config_command = ConfigCommand(
     name='config',
-    aliases=['config', 'c']
-)
+    aliases=['config', 'c'])

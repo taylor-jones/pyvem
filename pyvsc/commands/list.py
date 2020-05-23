@@ -39,6 +39,9 @@ class ListCommand(Command):
         super().__init__(name, _HELP, aliases=aliases)
 
     def run(self, *args, **kwargs):
+        # Update the logger to apply the log-level from the main options
+        self.apply_log_level(_LOGGER)
+
         print('TODO: Imlement ListCommand.run()')
 
 

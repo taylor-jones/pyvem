@@ -151,6 +151,9 @@ class SearchCommand(Command):
         Implements the "search" command's functionality. Overrides the
         inherited run() method in the parent Command class.
         """
+        # Update the logger to apply the log-level from the main options
+        self.apply_log_level(_LOGGER)
+
         # Create a new parser to parse the search command
         parser = self.get_command_parser()
         args, remainder = parser.parse_known_args()

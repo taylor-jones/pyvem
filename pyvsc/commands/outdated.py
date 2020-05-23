@@ -86,7 +86,7 @@ class OutdatedCommand(Command):
 
     def get_command_parser(self, *args, **kwargs):
         """
-        Builds and returns an argument parser that is specific to the 
+        Builds and returns an argument parser that is specific to the
         "outdated" command.
 
         Returns:
@@ -321,6 +321,9 @@ class OutdatedCommand(Command):
 
 
     def run(self, *args, **kwargs):
+        # Update the logger to apply the log-level from the main options
+        self.apply_log_level(_LOGGER)
+
         # build a parser that's specific to the 'outdated' command and parse
         # the 'outdated' command arguments.
         parser = self.get_command_parser()

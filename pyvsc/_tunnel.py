@@ -13,8 +13,6 @@ from pyvsc._containers import ConnectionParts, AttributeDict
 from pyvsc._logging import get_rich_logger
 
 _console = Console(theme=rich_theme)
-_LOGGER = get_rich_logger(__name__)
-
 
 class Tunnel:
     """
@@ -24,6 +22,8 @@ class Tunnel:
     a medium for getting remote resources and transferring them to the local
     system.
     """
+    logger = get_rich_logger(__name__, console=_console)
+
 
     def __init__(self, ssh_host=None, ssh_gateway=None, autoconnect=False):
         """
@@ -43,8 +43,8 @@ class Tunnel:
         # maintain a list of all the directories we create during processing
         # so we can go back and clean them up before exiting.
         self.created_dirs = set()
-
         self.apply(ssh_host, ssh_gateway)
+
         if autoconnect:
             self.connect(ssh_host, ssh_gateway)
 
@@ -66,8 +66,7 @@ class Tunnel:
                 hostname=ssh_gateway.hostname,
                 username=ssh_gateway.username or ssh_host.username,
                 password=ssh_gateway.password or ssh_host.password,
-                port=ssh_gateway.port or ssh_host.port,
-            )
+                port=ssh_gateway.port or ssh_host.port)
 
 
     def ensure_connection(self):
@@ -142,7 +141,7 @@ class Tunnel:
                 self.ssh_host.password = password
 
             except KeyboardInterrupt:
-                _LOGGER.warning('Exiting.')
+                Tunnel.logger.warning('Exiting.')
                 sys.exit(1)
 
         try:
@@ -162,7 +161,8 @@ class Tunnel:
 
             # open the ssh connection to test the connection
             connection.open()
-            _LOGGER.info('Connected to host: {}.'.format(ssh_host.hostname))
+            Tunnel.logger.info('Connected to host: {}.'.format(
+                ssh_host.hostname))
             return connection
 
         except Exception as e:
@@ -180,7 +180,7 @@ class Tunnel:
         """
         self.ensure_connection()
         self._connection.get(remote=remote, local=local)
-        _LOGGER.debug('Copied "{}:{}" to "{}:{}"'.format(
+        Tunnel.logger.debug('Copied "{}:{}" to "{}:{}"'.format(
             self.ssh_host.hostname, remote, gethostname(), local))
 
 
@@ -195,7 +195,7 @@ class Tunnel:
         res = self._connection.run('rm -rf {}'.format(path))
 
         if res.exited == 0:
-            _LOGGER.debug('Removed remote directory: "{}:{}"'.format(
+            Tunnel.logger.debug('Removed remote directory: "{}:{}"'.format(
                 self.ssh_host.hostname, path))
             return True
         return False
@@ -217,19 +217,19 @@ class Tunnel:
     def cleanup_created_dirs(self):
         """Cleanup directories that were created during processing."""
         if not bool(self.created_dirs):
-            _LOGGER.debug('No remote directories need to be cleaned up.')
+            Tunnel.logger.debug('No remote directories need to be cleaned up.')
             return
 
         if not self.is_connected():
             dirs = ', '.join(list(self.created_dirs))
-            _LOGGER.error('Tunnel connection was lost. Unable to remove '
+            Tunnel.logger.error('Tunnel connection was lost. Unable to remove '
                           'remote directories: {}'.format(dirs))
 
         for d in self.created_dirs:
             try:
                 self.rmdir(d)
             except Exception as e:
-                _LOGGER.error(e)
+                Tunnel.logger.error(e)
 
 
     def run(self, command, hide=True):
@@ -251,7 +251,7 @@ class Tunnel:
         """Close the remote SSH connection."""
         try:
             self._connection.close()
-            _LOGGER.debug('Closed ssh tunnel connection.')
+            Tunnel.logger.debug('Closed ssh tunnel connection.')
         except Exception as e:
             pass
 

@@ -1,6 +1,3 @@
-from builtins import int
-
-
 def props(cls):
     """
     Return the non-local/non-"private" class key names.

@@ -331,6 +331,9 @@ class InstallCommand(Command):
         Implements the "install" command's functionality. Overrides the
         inherited run() method in the parent Command class.
         """
+        # Update the logger to apply the log-level from the main options
+        self.apply_log_level(_LOGGER)
+
         # build a parser that's specific to the 'install' command and parse the
         # 'install' command arguments.
         parser = self.get_command_parser()

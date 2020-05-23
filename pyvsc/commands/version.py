@@ -35,6 +35,9 @@ class VersionCommand(Command):
         """
         Just print the program's version and exit.
         """
+        # Update the logger to apply the log-level from the main options
+        self.apply_log_level(_LOGGER)
+
         from sys import exit
 
         print(_VERSION)

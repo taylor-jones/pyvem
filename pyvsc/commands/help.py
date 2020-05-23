@@ -1,4 +1,5 @@
 from __future__ import print_function, absolute_import
+import sys
 
 from pyvsc._command import Command
 from pyvsc._config import _PROG
@@ -48,29 +49,28 @@ class HelpCommand(Command):
         """
         Implements the `help` commands functionality.
         """
-        from sys import exit, modules
+        # Update the logger to apply the log-level from the main options
+        self.apply_log_level(_LOGGER)
 
         # If the `help` command didn't get any arguments, just show the
         # default vem help screen and then exit.
         args = Command.main_options.args
         if not args:
             Command.main_parser.print_help()
-            exit(1)
+            sys.exit(1)
 
         # Otherwise, parse the command name.
         command_name = args[0]
 
-        # command = getattr(modules[__name__], '%s_command' % command_name)
-        # command.show_help()
-
         try:
-            command = getattr(modules[__name__], '{}_command'.format(
-                command_name))
+            # determine which command the user asked for help about. Then
+            # invoke the help for that command.
+            command = getattr(sys.modules[__name__],
+                              '{}_command'.format(command_name))
             command.show_help()
         except Exception:
-            self.console.print_exception()
-            print('No help documentation is available for command: {}'.format(
-                command_name))
+            _LOGGER.error('No help documentation is available for command: '
+                          '{}'.format(command_name))
 
 
 #

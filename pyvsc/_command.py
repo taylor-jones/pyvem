@@ -114,8 +114,7 @@ class Command(object):
         try:
             pathlib.Path(Command.main_options.output_dir).mkdir(
                 parents=True,
-                exist_ok=False
-            )
+                exist_ok=False)
 
             self.created_local_output_dir = True
             return True
@@ -141,13 +140,14 @@ class Command(object):
             # be referenced by sub-commands whenever needed.
             Command.main_parser = main_parser
             Command.main_options = main_options
+            _LOGGER.setLevel(Command.main_options.log_level)
 
             # pass along the original remote connection arguments to the
             # shared tunnel instance, so it can be ready to connect whenever
             # a command that uses the remote connection is invoked.
-            Command.tunnel.apply(
-                ssh_host=main_options.ssh_host,
-                ssh_gateway=main_options.ssh_gateway)
+            Command.tunnel.logger.setLevel(main_options.log_level)
+            Command.tunnel.apply(ssh_host=main_options.ssh_host,
+                                 ssh_gateway=main_options.ssh_gateway)
 
             # Pass along the tunnel instance to the shared Marketplace instance
             # so we don't have to maintain multiple tunnel connections.
@@ -201,6 +201,16 @@ class Command(object):
         """
         kwargs.setdefault('highlight', False)
         _console.print(text, style=rich_theme.styles['error'], **kwargs)
+
+
+    def apply_log_level(self, logger):
+        """
+        Update the logger to apply the log-level from the main options
+
+        Arguments:
+            logger {logging.logger} -- The logger from a command.
+        """
+        logger.setLevel(Command.main_options.log_level)
 
 
     def get_command_parser(self, *args, **kwargs):
