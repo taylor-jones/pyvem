@@ -7,9 +7,8 @@ from pyvsc._config import _PROG
 from pyvsc._help import Help
 from pyvsc._logging import get_rich_logger
 
-# Import each of the other commands so their 'help' methods can be invoked
-# from here. This is the only command that needs to import all of the other
-# commands.
+# Import each of the other commands so their 'help' methods can be invoked from here.
+# This is the only command that needs to import all of the other commands.
 # pylint: disable=unused-import
 # flake8: noqa:401
 from pyvsc.commands.config import config_command
