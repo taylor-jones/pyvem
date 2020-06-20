@@ -1,18 +1,14 @@
-from __future__ import print_function
-from __future__ import absolute_import
+"""Main program entry point module that parses original CLI arguments"""
 
-import os
 import sys
-import configargparse
 import logging
-
 from getpass import getuser
+
+import configargparse
 from fuzzywuzzy import process
 from rich.console import Console
 
-from pyvsc._tunnel import Tunnel
 from pyvsc._util import iso_now, resolved_path
-from pyvsc._containers import AttributeDict
 from pyvsc._editor import SupportedEditorCommands
 
 from pyvsc.commands import _COMMAND_NAMES
@@ -20,7 +16,6 @@ from pyvsc.commands import _COMMAND_NAMES_AND_ALIASES
 from pyvsc.commands import get_command_obj
 
 from pyvsc._command import Command
-from pyvsc._exceptions import raise_argument_error
 from pyvsc._config import _PROG, rich_theme
 from pyvsc._containers import parsed_connection_parts
 from pyvsc._logging import get_rich_logger
@@ -28,12 +23,13 @@ from pyvsc._logging import get_rich_logger
 _console = Console(theme=rich_theme)
 _LOGGER = get_rich_logger(__name__, console=_console)
 _FUZZYISH_COMMAND_THRESHOLD = 50
-_tmp_output_dir = '/tmp/{}-{}-{}'.format(getuser(), _PROG, iso_now())
+_TMP_OUTPUT_DIR = f'/tmp/{getuser()}-{_PROG}-{iso_now()}'
 
 
 def get_similar_commands(command):
     """
-    Perform a fuzzy check for similar command names to a given command.
+    Perform a fuzzy check for similar command names to a given command. Only values meeting or
+    exceeding the _FUZZYISH_COMMAND_THRESHOLD are returned.
 
     Arguments:
         command {str}
@@ -41,13 +37,8 @@ def get_similar_commands(command):
     Returns:
         list -- A list of fuzzy matches that meet a pre-determiend threshold.
     """
-    # Check for fuzzy-ish matches. Limit to 50% matches or greater.
-    similar = [x[0] for x in process.extract(
-        query=command,
-        choices=_COMMAND_NAMES_AND_ALIASES
-    ) if x[1] > _FUZZYISH_COMMAND_THRESHOLD]
-
-    return similar
+    return [x[0] for x in process.extract(query=command, choices=_COMMAND_NAMES_AND_ALIASES)
+            if x[1] > _FUZZYISH_COMMAND_THRESHOLD]
 
 
 class CustomFormatter(configargparse.HelpFormatter):
@@ -70,7 +61,7 @@ class CustomFormatter(configargparse.HelpFormatter):
                 default = action.dest.upper()
                 args_string = self._format_args(action, default)
                 for option_string in action.option_strings:
-                    parts.append('%s' % (option_string))
+                    parts.append('%s' % option_string)
                 parts[-1] += ' %s' % args_string
 
             return ', '.join(parts)
@@ -83,13 +74,14 @@ def create_main_parser():
     Returns:
         ConfigArgParse.ArgParser
     """
+    #
+    # setup the parser
+    #
     parser_kwargs = {
-        'usage': '[example]{} <command> [[options]][/]'
-                 '\n\n'
-                 'where [example]<command>[/] is one of:\n{}'
-                 '\n\nFor help about a specific command:'
-                 '\n\t[example]{} help <command>[/]'
-                 ''.format(_PROG, '\t' + ', '.join(_COMMAND_NAMES), _PROG),
+        'usage': f'{_PROG} <command> [options]'
+                 f'\n\nwhere <command> is one of:\n\t{", ".join(_COMMAND_NAMES)}'
+                 f'\n\nFor help about a specific command:'
+                 f'\n\t{_PROG} help <command>',
         'add_help': False,
         'default_config_files': ['.vemrc', '~/.vemrc', '~/.config/.vemrc'],
         'prog': _PROG,
@@ -97,10 +89,11 @@ def create_main_parser():
         'description': 'VSCode CLI helper for editors and extensions'
     }
 
-    # setup the parser
     parser = configargparse.ArgumentParser(**parser_kwargs)
 
+    #
     # setup the parser groups
+    #
     required_named = parser.add_argument_group('required named arguments')
     optional_named = parser.add_argument_group('optional named arguments')
     optional = parser.add_argument_group('optional arguments')
@@ -111,7 +104,7 @@ def create_main_parser():
     parser.add_argument('command',
                         nargs='?',
                         choices=_COMMAND_NAMES.append(None),
-                        help='The main {} command to execute.'.format(_PROG))
+                        help=f'The main {_PROG} command to execute.')
 
     parser.add_argument('args',
                         nargs='*',
@@ -139,7 +132,7 @@ def create_main_parser():
     # setup optional named arguments
     #
     optional_named.add_argument('-o', '--output-dir',
-                                default=_tmp_output_dir,
+                                default=_TMP_OUTPUT_DIR,
                                 type=resolved_path,
                                 help='The directory where the extensions will '
                                 'be downloaded.')
@@ -162,23 +155,26 @@ def create_main_parser():
                           help='Do not remove temporary downloads on the '
                           'local machine.')
 
+    #
     # Add verbosity argument option group
+    #
     log_level = optional.add_mutually_exclusive_group()
     optional.set_defaults(log_level=logging.INFO)
-    optional.add_argument('-v', '--verbose',
-                          action='store_const',
-                          dest='log_level',
-                          const=logging.DEBUG,
-                          help='Show debug output.')
+    log_level.add_argument('-v', '--verbose',
+                           action='store_const',
+                           dest='log_level',
+                           const=logging.DEBUG,
+                           help='Show debug output.')
 
-    optional.add_argument('-q', '--quiet',
-                          action='store_const',
-                          dest='log_level',
-                          const=logging.ERROR,
-                          help='Show only the minimally necessary output.')
+    log_level.add_argument('-q', '--quiet',
+                           action='store_const',
+                           dest='log_level',
+                           const=logging.ERROR,
+                           help='Show only the minimally necessary output.')
 
-
+    #
     # Add the target editor argument option group
+    #
     target = optional.add_mutually_exclusive_group()
     optional.set_defaults(target=SupportedEditorCommands.code)
     target.add_argument('--code',
@@ -209,6 +205,10 @@ def create_main_parser():
 
 
 def main():
+    """
+    Main entry point for the program
+    """
+    # get and parse the program arguments
     parser = create_main_parser()
     args, remainder = parser.parse_known_args()
 
@@ -217,13 +217,14 @@ def main():
     args.args.extend(remainder)
 
     # Add the remote output directory (doesn't need to be set by user)
-    args.remote_output_dir = _tmp_output_dir
+    args.remote_output_dir = _TMP_OUTPUT_DIR
 
     # If we got no command, make sure the user didn't just ask for the version,
     # which would be the only case where it's valid to provide an option
     # without providing a command. If this has happened, we'll set the command
     # to be 'version' so the command parser is satisfied and can pass that
     # command along to the VersionCommand handler.
+    # TODO: There's probably a better way to handle this
     if not args.command:
         if args.version:
             args.command = 'version'
@@ -236,27 +237,28 @@ def main():
     # an error message and exit.
     command = get_command_obj(args.command)
 
+    # If we got a valid command, invoke the command behavior
     if isinstance(command, Command):
         command.invoke(parser, args)
+
+    # Otheriwse, check if the user just requested to show help. If so, print the help info.
     elif args.help:
         parser.print_help()
+
+    # Otherwise, the user gave an invalid request.
     else:
-        _console.print('[error]"{}" is not a valid {} command[/].\n'.format(
-            args.command, _PROG))
+        _console.print(f'[error]"{args.command}" is not a valid {_PROG} command[/].\n')
         # TODO: Add a check for unknown command arguments in the config file??
+        # FIXME: What did I mean by the TODO statement above?
 
-        # Check for similar commands
+        # Check for similar commands. If any similar-enough matches were found, suggest them.
         similar_commands = get_similar_commands(args.command)
-
-        # If any similar-enough matches were found, print those suggestions
         if similar_commands:
-            cmds = ', '.join(similar_commands)
-            print('Maybe you meant one of these commands?\n{}\n'.format(cmds))
+            print(f'Maybe you meant one of these commands?\n\t{", ".join(similar_commands)}\n')
 
         # Whether or not any similar commands were found, print the usage,
         # along with an extra empty line to create a little spacing.
-        _console.print('usage: {}'.format(parser.usage), highlight=False)
-        # parser.print_usage()
+        parser.print_usage()
         print('')
 
 
