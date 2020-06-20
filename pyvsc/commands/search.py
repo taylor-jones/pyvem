@@ -1,4 +1,4 @@
-from __future__ import print_function, absolute_import
+"""Search command implementation"""
 
 import configargparse
 from fuzzywuzzy import process
@@ -33,36 +33,30 @@ _LOGGER = get_rich_logger(__name__)
 _HELP = Help(
     name='search',
     brief='Search the VSCode Marketplace',
-    synopsis='{prog} search <term>\n'
-             '{prog} search <term> [[--sort-by [[COLUMN]]]]\n'
-             '{prog} search <term> [[--count [[NUMBER]]]]\n\n'
-             '[h2]aliases:[/h2] {prog} s, {prog} find\n'
-             ''.format(prog=_PROG),
-    description='This command searched the VSCode Marketplace for extensions '
-                'matching the provided search terms. Additional search '
-                'control is provided by specifying sorting options and/or '
-                'specifying the amount of results to display.',
+    synopsis=f'{_PROG} search <term>\n'
+             f'{_PROG} search <term> [[--sort-by [[COLUMN]]]]\n'
+             f'{_PROG} search <term> [[--count [[NUMBER]]]]\n\n'
+             f'[h2]aliases:[/h2] {_PROG} s, {_PROG} find\n',
+    description='This command searched the VSCode Marketplace for extensions matching the '
+                'provided search terms. Additional search control is provided by specifying '
+                'sorting options and/or specifying the amount of results to display.',
     options='[h2]--sort-by [[COLUMN]][/h2]\n'
             '\t* Type: String\n'
             '\t* Default: Relevance'
             '\n\n'
-            'Sort the search results in descending order, based on a '
-            'particular column value. {prog} uses fuzzy matching to check if '
-            'the provided [bold]--sort-by[/bold] value matches any of the '
-            'known sort columns.'
+            'Sort the search results in descending order, based on a particular column value. '
+            f'{_PROG} uses fuzzy matching to check if the provided [bold]--sort-by[/bold] value '
+            'matches any of the known sort columns.'
             '\n\n'
             'Available sort columns include:\n'
-            '[example]{sort_columns}[/]'
+            f'[example]{", ".join(_AVAILABLE_SORT_COLUMNS)}[/]'
             '\n\n'
             '[h2]--count [[NUMBER]][/h2]\n'
             '\t* Type: Integer\n'
             '\t* Default: 15'
             '\n\n'
-            'By default, up to 15 results are returned, but this default '
-            'may be overriden to specify how many search results should be '
-            'returned.'.format(
-                prog=_PROG,
-                sort_columns=', '.join(_AVAILABLE_SORT_COLUMNS))
+            'By default, up to 15 results are returned, but this default may be overriden to '
+            'specify how many search results should be returned.'
 )
 
 
@@ -71,8 +65,8 @@ class SearchCommand(Command):
     The SearchCommand class defines the "search" command. This class
     inherits from the base Command class.
     """
-    def __init__(self, name, aliases=[]):
-        super().__init__(name, _HELP, aliases=aliases)
+    def __init__(self, name, aliases=None):
+        super().__init__(name, _HELP, aliases=aliases or [])
 
 
     def get_command_parser(self, *args, **kwargs):
@@ -85,7 +79,7 @@ class SearchCommand(Command):
         """
         parser_kwargs = {
             'add_help': False,
-            'prog': '{} {}'.format(_PROG, self.name)
+            'prog': f'{_PROG} {self.name}',
         }
 
         parser = configargparse.ArgumentParser(**parser_kwargs)
@@ -122,7 +116,8 @@ class SearchCommand(Command):
         return parser
 
 
-    def _get_sort_query(self, sort_argument=None):
+    @staticmethod
+    def _get_sort_query(sort_argument=None):
         """
         Determines the sort query component from the provided argument.
 
@@ -143,6 +138,7 @@ class SearchCommand(Command):
 
             if confidence > _FUZZY_SORT_CONFIDENCE_THRESHOLD:
                 return match, ExtensionQuerySortByTypes[match]
+
         return None, None
 
 
@@ -156,7 +152,7 @@ class SearchCommand(Command):
 
         # Create a new parser to parse the search command
         parser = self.get_command_parser()
-        args, remainder = parser.parse_known_args()
+        args, _ = parser.parse_known_args()
 
         # Remove the leading "search" command from the arguments
         args.query = args.query[1:]
@@ -164,22 +160,17 @@ class SearchCommand(Command):
         if args.query:
             # build the query string
             query_string = ' '.join(args.query)
-            sort_name, sort_num = self._get_sort_query(args.sort_by)
+            sort_name, sort_num = SearchCommand._get_sort_query(args.sort_by)
 
             # If we couldn't reasonably fuzzy-match a sort column, log that
             # warning to the console and use the default sort column.
             if sort_num is None:
-                sorted_sort_options = \
-                    sorted(list(ExtensionQuerySortByTypes.keys()))
-
-                _LOGGER.warning('"{}" did not match a known sort column.'
-                                ''.format(args.sort_by))
-                _LOGGER.warning('Available sort columns:\n{}\n\n'.format(
-                    ', '.join(sorted_sort_options)))
-
+                sorted_sort_options = sorted(list(ExtensionQuerySortByTypes.keys()))
+                _LOGGER.warning('"%s" did not match a known sort column.', args.sort_by)
+                _LOGGER.warning('Available sort columns:\n%s\n\n', ', '.join(sorted_sort_options))
                 sort_by = _DEFAULT_SORT_BY_ARGUMENT
             else:
-                _LOGGER.debug('Sorting by "{}"'.format(sort_name))
+                _LOGGER.debug('Sorting by "%s"', sort_name)
                 sort_by = sort_num
 
             # send the search query to the marketplace
@@ -187,8 +178,10 @@ class SearchCommand(Command):
             Command.marketplace.search_extensions(
                 query_string,
                 sort_by=sort_by,
-                page_size=args.count)
+                page_size=args.count
+            )
 
+        # If we got no search query, let the user know that we need one
         else:
             _LOGGER.error('The "search" command expects a query.')
             parser.print_usage()
