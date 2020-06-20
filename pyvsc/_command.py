@@ -1,15 +1,15 @@
-from __future__ import print_function
-from textwrap import dedent
+"""Abstract Command class from which all program command subclasses inheir"""
 
 import os
 import pathlib
+
 from rich.console import Console
 from rich.traceback import install as install_rich_traceback
 
 from pyvsc._tunnel import Tunnel
 from pyvsc._marketplace import Marketplace
 from pyvsc._help import Help
-from pyvsc._config import _PROG, rich_theme
+from pyvsc._config import rich_theme
 from pyvsc._logging import get_rich_logger
 
 
@@ -18,7 +18,7 @@ _LOGGER = get_rich_logger(__name__, console=_console)
 install_rich_traceback()
 
 
-class Command(object):
+class Command():
     """
     Abstract base command class from which all actionable commands inherit.
     """
@@ -32,22 +32,21 @@ class Command(object):
     temporary_file_paths = []
 
 
-    def __init__(self, name, help_, aliases=[]):
+    def __init__(self, name, help_, aliases=None):
         self.name = name
         self.help = help_
-        self.aliases = aliases
+        self.aliases = aliases or []
 
-        # Keep track of whether this program created the local output
-        # directory. If we created it, we'll delete it. If we didn't create it,
-        # we won't delete it.
+        # Keep track of whether this program created the local output directory.
+        # If we created it, we'll delete it. If we didn't create it, we won't delete it.
         self.created_local_output_dir = None
 
-        # Ensure all sub-commands have instantiated a Help instance for their
-        # 'help' attribute.
-        assert(isinstance(self.help, Help))
+        # Ensure all sub-commands have instantiated a Help instance for their 'help' attribute.
+        assert isinstance(self.help, Help)
 
 
-    def store_temporary_file_path(self, path):
+    @staticmethod
+    def store_temporary_file_path(path):
         """
         Adds a given file path to the list of temporary files that should be
         removed at the end of processing.
@@ -59,13 +58,49 @@ class Command(object):
             Command.temporary_file_paths.append(path)
 
 
-    def remove_temporary_files(self):
+    @staticmethod
+    def remove_temporary_files():
         """
         Remove all temporary files that were created during processing.
         """
         if not Command.main_options.no_cleanup:
-            for f in Command.temporary_file_paths:
-                os.remove(f)
+            for tmp_file in Command.temporary_file_paths:
+                os.remove(tmp_file)
+
+
+    @staticmethod
+    def apply_log_level(logger):
+        """
+        Update the logger to apply the log-level from the main options.
+        NOTE: This isn't applied in the base Command class, but it's used
+        by the Command subclasses.
+
+        Arguments:
+            logger {logging.logger} -- The logger from a command.
+        """
+        logger.setLevel(Command.main_options.log_level)
+
+
+    @staticmethod
+    def show_error(text, **kwargs):
+        """
+        Print a styled error using the rich_theme error styling and a rich
+        console. This is suitable for text that is intended to all use the
+        error style. For error messages that need for fine-grained output,
+        it's probably better to write the custom message message
+
+        NOTE: The difference between this and the logging.error is that the
+        console error does not include the logging formatting (like the module
+        name and timestamp). This is just for direct error messages.
+
+        Arguments:
+            text {str} -- The error message to output
+
+        NOTE: **kwargs are passed to the console.print() method, so any named
+        arguments that console.print() supports are supported here as well.
+        """
+        kwargs.setdefault('highlight', False)
+        _console.print(text, style=rich_theme.styles['error'], **kwargs)
 
 
     def ensure_output_dirs_exist(self):
@@ -74,8 +109,7 @@ class Command(object):
         local directory exist.
 
         Returns:
-            bool -- True if we could ensure both the remote and local dirs
-            exist, False if not.
+            bool -- True if we could ensure both the remote and local dirs exist, False if not.
         """
         local_exists = self.ensure_local_output_dir_exists()
         remote_exists = self.ensure_remote_output_dir_exists()
@@ -100,8 +134,7 @@ class Command(object):
 
         Returns:
             bool -- True if the output directory was ensured to exist (whether
-            we created it or it already existed), False if an exception was
-            raised.
+            we created it or it already existed), False if an exception was raised.
         """
         # We only need to do this once.
         if self.created_local_output_dir is not None:
@@ -112,14 +145,11 @@ class Command(object):
             return True
 
         try:
-            pathlib.Path(Command.main_options.output_dir).mkdir(
-                parents=True,
-                exist_ok=False)
-
+            pathlib.Path(Command.main_options.output_dir).mkdir(parents=True, exist_ok=False)
             self.created_local_output_dir = True
             return True
-        except Exception as e:
-            Command.log.debug(e)
+        except EnvironmentError as err:
+            _LOGGER.debug(err)
             return False
 
 
@@ -140,6 +170,8 @@ class Command(object):
             # be referenced by sub-commands whenever needed.
             Command.main_parser = main_parser
             Command.main_options = main_options
+
+            # apply the log level from the original parsed arguments
             _LOGGER.setLevel(Command.main_options.log_level)
 
             # pass along the original remote connection arguments to the
@@ -157,12 +189,16 @@ class Command(object):
         # run() for whichever Command subclass was invoked. The run() method
         # must be implemented within each command subclass.
         try:
+            # TODO: This should be better handled. Right now, it would print the message
+            # below if the Command.run() returns True, but I'm not sure how much value that adds.
             if self.run():
-                _console.print('[success]All done![/]')
+                _console.print('[logging.level.info]All done![/]')
+            # else:
+            #     _console.print('[logging.level.warning]Command finished[/]')
 
-        except Exception as e:
-            _LOGGER.error(e)
-            raise(e)
+        except Exception as err:
+            _LOGGER.exception(err)
+            # raise err
 
         finally:
             # regardless of what happens, cleanup and created remote
@@ -175,42 +211,9 @@ class Command(object):
     def show_help(self):
         """
         Invoke the print() method on a Command's help object instance.
-
-        NOTE: This expects that each Command sub-class implements a Help
-        class instance
+        NOTE: This expects that each Command sub-class implements a Help class instance
         """
         self.help.print_help()
-
-
-    def show_error(self, text, **kwargs):
-        """
-        Print a styled error using the rich_theme error styling and a rich
-        console. This is suitable for text that is intended to all use the
-        error style. For error messages that need for fine-grained output,
-        it's probably better to write the custom message message
-
-        NOTE: The difference between this and the logging.error is that the
-        console error does not include the logging formatting (like the module
-        name and timestamp). This is just for direct error messages.
-
-        Arguments:
-            text {str} -- The error message to output
-
-        NOTE: **kwargs are passed to the console.print() method, so any named
-        arguments that console.print() supports are supported here as well.
-        """
-        kwargs.setdefault('highlight', False)
-        _console.print(text, style=rich_theme.styles['error'], **kwargs)
-
-
-    def apply_log_level(self, logger):
-        """
-        Update the logger to apply the log-level from the main options
-
-        Arguments:
-            logger {logging.logger} -- The logger from a command.
-        """
-        logger.setLevel(Command.main_options.log_level)
 
 
     def get_command_parser(self, *args, **kwargs):
