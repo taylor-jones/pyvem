@@ -1,4 +1,5 @@
-from __future__ import print_function, absolute_import
+"""Help command implementation"""
+
 import sys
 
 from pyvsc._command import Command
@@ -9,6 +10,8 @@ from pyvsc._logging import get_rich_logger
 # Import each of the other commands so their 'help' methods can be invoked
 # from here. This is the only command that needs to import all of the other
 # commands.
+# pylint: disable=unused-import
+# flake8: noqa:401
 from pyvsc.commands.config import config_command
 from pyvsc.commands.info import info_command
 from pyvsc.commands.install import install_command
@@ -23,17 +26,15 @@ _LOGGER = get_rich_logger(__name__)
 _HELP = Help(
     name='help',
     brief='Show help documentation',
-    synopsis='{prog} help <command>'.format(prog=_PROG),
-    description='This command will show help documentation for other {prog} '
-                'commands. If the provided [keyword]<command>[/] is not valid '
-                'or no help documentation exists, the help command will '
-                'display:\n'
-                '\t"No help documentation is available for the command '
-                '[keyword]<command>[/]"'
+    synopsis=f'{_PROG} help <command>',
+    description=f'This command will show help documentation for other {_PROG} commands. '
+                'If the provided [keyword]<command>[/] is not valid or no help documentation '
+                'exists, the help command will display:'
+                '\n\t[example]No help documentation is available for the command '
+                '[keyword]<command>[/][/]'
                 '\n\n'
-                'If no command (or no valid command) is passed to the help '
-                'command, then {prog}\'s default help output is printed to '
-                'stdout.'.format(prog=_PROG)
+                'If no command (or no valid command) is passed to the help command, then '
+                f'{_PROG}\'s default help output is printed to stdout.'
 )
 
 
@@ -42,8 +43,16 @@ class HelpCommand(Command):
     Inherits from the base Command class and overrides the `run` method
     to implement the Help functionality.
     """
-    def __init__(self, name, aliases=[]):
-        super().__init__(name, _HELP, aliases=aliases)
+    def __init__(self, name, aliases=None):
+        super().__init__(name, _HELP, aliases=aliases or [])
+
+
+    def get_command_parser(self, *args, **kwargs):
+        """
+        No custom command parser implementation is needed for the Help command.
+        """
+        return None
+
 
     def run(self, *args, **kwargs):
         """
@@ -65,12 +74,10 @@ class HelpCommand(Command):
         try:
             # determine which command the user asked for help about. Then
             # invoke the help for that command.
-            command = getattr(sys.modules[__name__],
-                              '{}_command'.format(command_name))
+            command = getattr(sys.modules[__name__], f'{command_name}_command')
             command.show_help()
-        except Exception:
-            _LOGGER.error('No help documentation is available for command: '
-                          '{}'.format(command_name))
+        except AttributeError:
+            _LOGGER.error('No help documentation is available for command: "%s"', command_name)
 
 
 #
