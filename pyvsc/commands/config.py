@@ -1,9 +1,11 @@
-from __future__ import print_function, absolute_import
+"""Config command implementation"""
 
 import os
-import configargparse
-
 from itertools import chain
+
+import configargparse
+import yaml
+
 from rich.console import Console
 from pyvsc._command import Command
 from pyvsc._config import _PROG, rich_theme
@@ -16,34 +18,31 @@ _console = Console(theme=rich_theme)
 _LOGGER = get_rich_logger(__name__)
 _HELP = Help(
     name='config',
-    brief='Manage the {prog} configuration file.'.format(prog=_PROG),
-    synopsis='\t{prog} config set <key> <value>\n'
-             '\t{prog} config get <key>\n'
-             '\t{prog} config delete <key>'
-             '\t{prog} config list'
-             '\t{prog} config edit'
-             '\n\n'
-             '\t[h2]aliases:[/h2] {prog} c'.format(prog=_PROG),
-    description='This command provides a means of managing {prog}\'s '
-                '.{prog}rc file. This allows for setting, getting, or '
-                'updating the contents within the .{prog}rc.'.format(
-                    prog=_PROG),
+    brief=f'Manage the {_PROG} configuration file.',
+    synopsis=f'\t{_PROG} config set <key> <value>\n'
+             f'\t{_PROG} config get <key>\n'
+             f'\t{_PROG} config delete <key>'
+             f'\t{_PROG} config list'
+             f'\t{_PROG} config edit'
+             f'\n\n'
+             f'\t[h2]aliases:[/h2] {_PROG} c',
+    description='This command provides a means of managing {_PROG}\'s .{_PROG}rc file. This '
+                'allows for setting, getting, or updating the contents within the .{_PROG}rc.',
     sub_commands='Config supports the following sub-commands:'
                  '\n\n'
                  '[h2]set[/h2]\n'
-                 '\t[example]{prog} config set <key> <value>[/]\n'
+                 f'\t[example]{_PROG} config set <key> <value>[/]\n'
                  '\tSets the config key to the value.\n'
                  '\tIf the value is omitted, it\'s set to "true".\n\n'
                  '[h2]get[/h2]\n'
-                 '\t[example]{prog} config get <key>[/]\n'
+                 f'\t[example]{_PROG} config get <key>[/]\n'
                  '\tPrints the config key value to stdout.\n\n'
                  '[h2]list[/h2]\n'
-                 '\t[example]{prog} config list[/]\n'
+                 f'\t[example]{_PROG} config list[/]\n'
                  '\tPrints all of the config settings to stdout.\n\n'
                  '[h2]delete[/h2]\n'
-                 '\t[example]{prog} config delete <key>[/]\n'
+                 f'\t[example]{_PROG} config delete <key>[/]\n'
                  '\tDeletes the key from the configuration file.\n\n'
-                 ''.format(prog=_PROG)
 )
 
 
@@ -52,11 +51,11 @@ class ConfigCommand(Command):
     Inherits from the base Command class and overrides the `run` method
     to implement the Config functionality.
     """
-    def __init__(self, name, aliases=[]):
+    def __init__(self, name, aliases=None):
         self.conf_file = None
         self.conf_settings = None
         self.subcommands = {'get', 'set', 'list', 'delete'}
-        super().__init__(name, _HELP, aliases=aliases)
+        super().__init__(name, _HELP, aliases=aliases or [])
 
 
     def _fetch_configurations(self):
@@ -67,9 +66,7 @@ class ConfigCommand(Command):
         if not self.conf_file or not self.conf_settings:
             parser_attr = dict(vars(Command.main_parser))
             confs = parser_attr['_source_to_settings']
-            conf_files = [(k, confs[k])
-                          for k in confs.keys()
-                          if k.startswith('config_file')]
+            conf_files = [(k, confs[k]) for k in confs.keys() if k.startswith('config_file')]
 
             if conf_files:
                 conf_file, conf_settings = conf_files[0]
@@ -95,7 +92,7 @@ class ConfigCommand(Command):
         # make sure there's a config file to read from
         if not self.conf_file:
             _LOGGER.warning('No config file was found.')
-            return
+            return False
 
         # if the config file, itself, was requested, just return the path
         # to the config file as a key-value pair.
@@ -105,22 +102,19 @@ class ConfigCommand(Command):
         # make sure there are any configurations to read
         if not self.conf_settings:
             _console.print('[i]no configurations found.[/]')
-        else:
-            # Find the first matching config.
-            return next((x for x in self.conf_settings if x[0] == key), None)
+            return False
+
+        # Find the first matching config.
+        return next((x for x in self.conf_settings if x[0] == key), None)
 
 
     def _set_config(self, key, value):
-        # lazy import yaml only when we need it
-        import yaml
-
         self._fetch_configurations()
         rc_file = '.{}rc'.format(_PROG)
 
         # make sure there's a config file to read from
         if not self.conf_file:
-            question = 'No {} file was found. Would you like to create ' \
-                       'one?'.format(rc_file)
+            question = 'No {} file was found. Would you like to create one?'.format(rc_file)
 
             # check if the user wants to create a .vimrc file
             if get_confirmation(question):
@@ -132,8 +126,7 @@ class ConfigCommand(Command):
                 with open(self.conf_file, 'w+'):
                     pass
             else:
-                return _console.print('[error]No configuration can be set '
-                                      'without a configuration file.[/]')
+                _console.print('[error]No configuration can be set without a config file.[/]')
 
 
         # Open the config file and read it's contents into a dict
@@ -149,25 +142,34 @@ class ConfigCommand(Command):
 
 
     def _remove_config(self, key):
-        # lazy import yaml only when we need it
-        import yaml
+        """
+        Remove a configuration key from the vem configuration file
+
+        Args:
+            key (str): the name of the key to remove
+
+        Returns:
+            bool -- True if the configuration key could be removed, False if not
+        """
 
         # make sure there's a config file to read from
         self._fetch_configurations()
         if not self.conf_file:
-            return _console.print('[error]No configuration can be removed '
-                                      'without a configuration file.[/]')
+            _console.print('[error]No configuration can be removed without a config file.[/]')
+            return False
 
         # Open the config file and read it's contents into a dict
         with open(self.conf_file) as f:
             conf = yaml.safe_load(f) or {}
 
-            # Update the config setting
+            # Delete the config setting
             del conf[key]
 
         # Write the configuration back to the file
         with open(self.conf_file, 'w') as f:
             yaml.safe_dump(conf, f, default_flow_style=False)
+
+        return True
 
 
     def _get_config_list(self):
@@ -180,7 +182,7 @@ class ConfigCommand(Command):
         # check for a config file
         if not self.conf_file:
             _LOGGER.warning('No config file was found.')
-            return
+            return False
 
         # include the config file, itself, in the list
         _console.print('config file: {}'.format(self.conf_file))
@@ -208,26 +210,11 @@ class ConfigCommand(Command):
         Returns:
             configargparse.ArgParser
         """
-        parser_kwargs = {'add_help': False,
-                         'prog': '{} {}'.format(_PROG, self.name)}
-
+        parser_kwargs = {'add_help': False, 'prog': '{} {}'.format(_PROG, self.name)}
         parser = configargparse.ArgumentParser(**parser_kwargs)
-
-        parser.add_argument('--help',
-                            action='help',
-                            help='Show help.')
-
-        parser.add_argument('subcommand',
-                            nargs='?',
-                            type=str,
-                            help='The config subcommand.')
-
-        parser.add_argument('key',
-                            nargs='+',
-                            default=None,
-                            type=str,
-                            help='The subcommand key.')
-
+        parser.add_argument('--help', action='help', help='Show help.')
+        parser.add_argument('subcommand', nargs='?', type=str, help='The config subcommand.')
+        parser.add_argument('key', nargs='+', default=None, type=str, help='The subcommand key.')
         return parser
 
 
@@ -256,7 +243,7 @@ class ConfigCommand(Command):
                 self._show_setting(*self._get_config(key))
             elif subcommand == 'set':
                 self._set_config(key, value)
-            elif subcommand == 'remove' or subcommand == 'delete':
+            elif subcommand in ('remove', 'delete'):
                 self._remove_config(key)
             else:
                 raise ValueError
@@ -270,4 +257,5 @@ class ConfigCommand(Command):
 #
 config_command = ConfigCommand(
     name='config',
-    aliases=['config', 'c'])
+    aliases=['config', 'c']
+)

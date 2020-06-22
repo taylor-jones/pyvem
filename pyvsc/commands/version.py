@@ -1,4 +1,6 @@
-from __future__ import print_function, absolute_import
+"""Version command implementation"""
+
+import sys
 
 from pyvsc._command import Command
 from pyvsc._config import _PROG, _VERSION
@@ -9,13 +11,11 @@ from pyvsc._logging import get_rich_logger
 _LOGGER = get_rich_logger(__name__)
 _HELP = Help(
     name='version',
-    brief='shows the {prog} version'.format(prog=_PROG),
-    synopsis='{prog} -V\n'
-             '{prog} --version\n\n'
-             '[h2]aliases[/]: {prog} version'
-             ''.format(prog=_PROG),
-    description='This command will print the current {prog} version to '
-                'stdout.'.format(prog=_PROG)
+    brief=f'shows the {_PROG} version',
+    synopsis=f'{_PROG} -V\n'
+             f'{_PROG} --version\n\n'
+             f'[h2]aliases[/]: {_PROG} version',
+    description=f'This command will print the current {_PROG} version to stdout.'
 )
 
 
@@ -24,12 +24,13 @@ class VersionCommand(Command):
     The VersionCommand class defines the "version" command. This class
     inherits from the base Command class.
     """
-    """
-    Inherits the base Command class and implements the Version
-    command functionality.
-    """
-    def __init__(self, name, aliases=[]):
-        super().__init__(name, _HELP, aliases=aliases)
+    def __init__(self, name, aliases=None):
+        super().__init__(name, _HELP, aliases=aliases or [])
+
+
+    def get_command_parser(self, *args, **kwargs):
+        pass
+
 
     def run(self, *args, **kwargs):
         """
@@ -38,10 +39,8 @@ class VersionCommand(Command):
         # Update the logger to apply the log-level from the main options
         self.apply_log_level(_LOGGER)
 
-        from sys import exit
-
         print(_VERSION)
-        exit(0)
+        sys.exit(0)
 
 
 #
@@ -49,5 +48,5 @@ class VersionCommand(Command):
 #
 version_command = VersionCommand(
     name='version',
-    aliases=['version'],
+    aliases=['version', 'v'],
 )

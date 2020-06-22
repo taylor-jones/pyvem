@@ -1,16 +1,17 @@
-from __future__ import absolute_import
-from __future__ import print_function
-from __future__ import unicode_literals
+"""Code editor management module"""
 
+
+from distutils.spawn import find_executable
+import json
+import logging
 import os
 import re
 import subprocess
-import json
 
-from distutils.spawn import find_executable
-from pyvsc._util import expanded_path, truthy_list
+from cached_property import cached_property
+
+from pyvsc._util import expanded_path
 from pyvsc._containers import AttributeDict
-from pyvsc._compat import is_py3, popen, split
 from pyvsc._machine import platform_query
 from pyvsc._curler import CurledRequest
 from pyvsc._logging import get_rich_logger
@@ -18,11 +19,13 @@ from pyvsc._logging import get_rich_logger
 
 _ENCODING = 'utf-8'
 _EXTENSION_ATTRIBUTES_RE = re.compile(
-    '^(?P<unique_id>.*?^(?P<publisher>.*?)\.(?P<package>.*))\@(?P<version>.*)')
+    r'^(?P<unique_id>.*?^'
+    r'(?P<publisher>.*?)\.'
+    r'(?P<package>.*))\@(?P<version>.*)'
+)
 
 _GITHUB_EDITOR_UPDATE_ROOT_URL = 'https://api.github.com'
-_MARKETPLACE_EDITOR_UPDATE_ROOT_URL = \
-    'https://update.code.visualstudio.com/api/update'
+_MARKETPLACE_EDITOR_UPDATE_ROOT_URL = 'https://update.code.visualstudio.com/api/update'
 
 # These represent the query patterns for the different vscode editors based
 # on the system platform and architecture.
@@ -50,19 +53,19 @@ SupportedEditorCommands = AttributeDict({
 })
 
 
-class SupportedEditor(AttributeDict):
+class SupportedEditor():
     """
     Define the attributes of a supported code editor.
     """
     def __init__(
-        self,
-        command,
-        editor_id,
-        remote_alias,
-        home_dirname,
-        tunnel,
-        api_root_url=_MARKETPLACE_EDITOR_UPDATE_ROOT_URL,
-        github_ext_pattern=None,
+            self,
+            command,
+            editor_id,
+            remote_alias,
+            home_dirname,
+            tunnel,
+            api_root_url=_MARKETPLACE_EDITOR_UPDATE_ROOT_URL,
+            github_ext_pattern=None,
     ):
         self.command = command
         self.editor_id = editor_id
@@ -72,6 +75,131 @@ class SupportedEditor(AttributeDict):
         self.github_ext_pattern = github_ext_pattern
         self.tunnel = tunnel
 
+
+    def install_extension(self, extension_path):
+        try:
+            ext_name = os.path.basename(extension_path)
+            _LOGGER.info('Installing %s', ext_name)
+            subprocess.Popen([self.command, '--install-extension', extension_path],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE).wait()
+
+        except Exception as err:
+            _LOGGER.error('Failed to install extension: %d', ext_name)
+            _LOGGER.debug(err)
+
+
+    def get_extensions(self, force_recheck=False):
+        """
+        Builds a list of extensions for the current code editor, parsing each list item into
+        a dict having the following format (which is based on _EXTENSION_ATTRIBUTES_RE):
+        {
+            'unique_id': <str>,
+            'publisher': <str>,
+            'package': <str>,
+            'version': <str>
+        }
+
+        Keyword Arguments:
+            force_recheck {bool} -- If True, any previously-build extensions
+            list will be ignored and a new one will be built (default: {False})
+
+        Returns:
+            list -- A list of extension dict items representing the currently-installed
+                extensions for this editor.
+        """
+        if not self.installed:
+            return []
+
+        # if a forced recheck is requested, deleted the current extensions cache
+        # before rebuilding the extensions list
+        if force_recheck:
+            del self.__dict__['extensions']
+        return self.extensions
+
+
+    def download(self, remote_dir, local_dir):
+        """
+        Communicate to the tunnel instance to download the editor on the remote machine
+        and then copy it to the specified location on the local machine.
+
+        Arguments:
+            remote_dir {str} -- Absolute path to the download directory on the remote host
+            local_dir {str} -- Absolute path to the download directory on the local host.
+
+        Returns:
+            str -- The absolute path to the downloaded file on the local
+            machine (if sucessful). If unsuccessful, returns False.
+        """
+        remote_fs_path = os.path.join(remote_dir, self.download_file_name)
+        local_fs_path = os.path.join(local_dir, self.download_file_name)
+        curl_request = _curled.get(self.download_url, output=remote_fs_path)
+
+        response = self.tunnel.run(curl_request)
+        if response.exited != 0:
+            _LOGGER.error(response.stderr)
+            return False
+
+        _LOGGER.info(response.stdout)
+        self.tunnel.get(remote_fs_path, local_fs_path)
+
+        # return the path to the local file so we can keep track of it
+        # and delete it once processing completes
+        return local_fs_path
+
+
+    @cached_property
+    def engine(self):
+        """
+        Get the currently-installed version of this code editor.
+
+        Returns:
+            str|None -- The engine version of the editor (or None if the editor
+            is not installed or not on the PATH).
+        """
+        try:
+            # check the installed editor version. This will return 3 lines as follows:
+            # 1) the installed editor engine version
+            # 2) the installed editor hash
+            # 3) installed editor architecture
+
+            # Since we're only interested in the engine version, we'll return the
+            # first line of the output value.
+            installed_editor_info = subprocess.check_output([self.command, '--version'])
+            installed_editor_engine = installed_editor_info.splitlines()[0].decode(_ENCODING)
+            return installed_editor_engine
+
+        # If the editor is not on
+        except EnvironmentError:
+            return None
+
+
+    @cached_property
+    def extensions(self):
+        """
+        Get a list of the extensions installed for the current editor.
+
+        Returns:
+            list
+        """
+        stdout, _ = subprocess.Popen([self.command, '--list-extensions', '--show-versions'],
+                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                     encoding='utf-8').communicate()
+
+        # parse the extension results into a list of dicts of extension attributes
+        return [_EXTENSION_ATTRIBUTES_RE.match(line).groupdict() for line in stdout.splitlines()]
+
+
+    @cached_property
+    def api_url(self):
+        if self.api_root_url.startswith(_GITHUB_EDITOR_UPDATE_ROOT_URL):
+            return self.api_root_url
+
+        path = f'/{_MARKETPLACE_EDITOR_DISTRO_PATTERN}/{self.remote_alias}/latest'
+        return f'{self.api_root_url}{path}'
+
+
+    @cached_property
+    def latest(self):
         '''
         Once set, "latest" has the following structure:
 
@@ -85,162 +213,28 @@ class SupportedEditor(AttributeDict):
             sha256hash: <str>,
         }
         '''
-        self._latest = None
+        curl_request = _curled.get(self.api_url)
+        response = self.tunnel.run(curl_request)
+
+        if response.exited == 0:
+            return json.loads(response.stdout)
+
+        _LOGGER.error(response.stderr)
+        return None
 
 
-    def install_extension(self, extension_path):
-        try:
-            ext_name = os.path.basename(extension_path)
-            _LOGGER.info('Installing {}'.format(ext_name))
-            proc = subprocess.Popen([
-                self.command,
-                '--install-extension',
-                extension_path],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE)
-            proc.wait()
-
-        except Exception as e:
-            _LOGGER.error('Failed to install extension: {}'.format(ext_name))
-            _LOGGER.debug(e)
-
-
-    def get_extensions(self, force_recheck=False):
-        """
-        Builds a list of extensions for the current code editor, parsing each
-        list item into a dict having the following format:
-        {
-            'unique_id': <str>,
-            'publisher': <str>,
-            'package': <str>,
-            'version': <str>
-        }
-
-        Keyword Arguments:
-            force_recheck {bool} -- If True, any previously-build extensions
-            list will be ignored and a new one will be built (default: {False})
-
-        Returns:
-            list -- A list of extension dict items representing the currently-
-            installed extensions for this editor.
-        """
-        if not self.installed:
-            return []
-        elif self._extensions is not None and not force_recheck:
-            return self._extensions
-
-        args = [self.command, '--list-extensions', '--show-versions']
-        stdout, _ = popen(args)
-        extensions = [
-            _EXTENSION_ATTRIBUTES_RE.match(i).groupdict()
-            for i in stdout.splitlines()
-        ]
-
-        self._extensions = extensions
-        return self._extensions
-
-
-    def download(self, remote_dir, local_dir):
-        """
-        Communicate to the tunnel instance to download the editor on the
-        remote machine and then copy it to the specified location on the
-        local machine.
-
-        Arguments:
-            remote_dir {str} -- Absolute path to the download directory on the
-                remote host
-            local_dir {str} -- Absolute path to the download directory on the
-                local host.
-
-        Returns:
-            str -- The absolute path to the downloaded file on the local
-            machine (if sucessful). If unsuccessful, returns False.
-        """
-        remote_path = os.path.join(remote_dir, self.download_file_name)
-        local_path = os.path.join(local_dir, self.download_file_name)
-        curled_request = _curled.get(self.download_url, output=remote_path)
-
-        response = self.tunnel.run(curled_request)
-        if response.exited != 0:
-            _LOGGER.error(response.stderr)
-            return False
-
-        _LOGGER.info(response.stdout)
-        self.tunnel.get(remote_path, local_path)
-
-        # return the path to the local file so we can keep track of it
-        # and delete it once processing completes
-        return local_path
-
-
-    def get_engine(self):
-        """
-        Get the currently-installed version of this code editor.
-
-        Returns:
-            str -- The engine version of the editor or None if the editor
-            is not installed or not on the PATH.
-        """
-        try:
-            # check the installed version
-            output = subprocess.check_output([
-                self.command, '--version'
-            ], shell=False).splitlines()
-
-            # format the info about the currently installed version
-            return output[0].decode(_ENCODING)
-
-        except Exception as e:
-            return None
-
-
-    @property
-    def api_url(self):
-        if self._api_url is not None:
-            return self._api_url
-        if self.api_root_url.startswith(_GITHUB_EDITOR_UPDATE_ROOT_URL):
-            self._api_url = self.api_root_url
-        else:
-            path = '/{}/{}/latest'.format(
-                _MARKETPLACE_EDITOR_DISTRO_PATTERN,
-                self.remote_alias)
-            self._api_url = '{}{}'.format(self.api_root_url, path)
-        return self._api_url
-
-
-    @property
-    def latest(self):
-        if self._latest is None:
-            curl_request = _curled.get(self.api_url)
-            response = self.tunnel.run(curl_request)
-
-            if response.exited == 0:
-                self._latest = json.loads(response.stdout)
-            else:
-                _LOGGER.error(response.stderr)
-
-        return self._latest
-
-
-    @property
+    @cached_property
     def download_url(self):
-        if self._download_url is not None:
-            return self._download_url
-
+        # if this editor uses the github api, we need to determine which asset we're looking
+        # for and find the browser download url
         if self.api_url.startswith(_GITHUB_EDITOR_UPDATE_ROOT_URL):
-            # if this editor uses the github api, we need to determine which
-            # asset we're looking for and find the browser download url
             assets = self.latest['assets']
-            asset = next(x for x in assets if x['name'].endswith(
-                self.github_ext_pattern))
-            self._download_url = asset['browser_download_url']
+            asset = next(x for x in assets if x['name'].endswith(self.github_ext_pattern))
+            return asset['browser_download_url']
 
-        elif self.api_root_url == _MARKETPLACE_EDITOR_UPDATE_ROOT_URL:
-            # if this editor uses the the visualstudio update api,
-            # then just get the url key from the json result.
-            self._download_url = self.latest['url']
-
-        return self._download_url
+        # if this editor uses the the visualstudio update api, get the url from the json result.
+        if self.api_root_url == _MARKETPLACE_EDITOR_UPDATE_ROOT_URL:
+            return self.latest['url']
 
 
     @property
@@ -250,10 +244,7 @@ class SupportedEditor(AttributeDict):
 
     @property
     def extensions_dir(self):
-        if self._extensions_dir is None:
-            self._extensions_dir = \
-                expanded_path('$HOME/{}/extensions'.format(self.home_dirname))
-        return self._extensions_dir
+        return expanded_path(f'$HOME/{self.home_dirname}/extensions')
 
 
     @property
@@ -263,39 +254,22 @@ class SupportedEditor(AttributeDict):
 
     @property
     def can_update(self):
-        # if we've already run this check, we don't need to do it again.
-        if self._can_update is not None:
-            return self._can_update
-
         try:
-            self.version = ''
-            if self.installed:
-                # check the installed version
-                output = subprocess.check_output([
-                    self.command, '--version'
-                ], shell=False).splitlines()
-
-                # format the info about the currently installed version
-                self.version = output[0].decode(_ENCODING)
-
             # check the latest remote version
             latest = self.latest
-            self.latest_version = latest.get('name')
+            latest_version = latest.get('name')
 
-            _LOGGER.debug('{} | installed: {}, latest: {}'.format(
-                self.editor_id, self.version, self.latest_version))
+            # if _LOGGER.isEnabledFor(logging.DEBUG):
+            #     _LOGGER.debug('%s | installed:%s, latest:%s',
+            #                   self.editor_id, self.engine, latest_version)
 
-            # if the installed version doesn't match the latest remote version
-            # or the installed hash doesn't match the latest remote hash,
+            # if the installed version doesn't match the latest remote version,
             # we'll assume the editor can be updated.
-            self._can_update = self.version != self.latest_version
+            return self.engine != latest_version
 
-        except (TypeError, ValueError) as e:
-            _LOGGER.debug(e)
-            self._can_update = False
-
-        finally:
-            return self._can_update
+        except (TypeError, ValueError) as err:
+            _LOGGER.debug(err)
+            return False
 
 
 
@@ -316,13 +290,12 @@ def get_editors(tunnel=None):
     """
     Get AttributeDict of SupportedEditors.
 
-    Builds an AttributeDict of data about each of the support VSCode editor
-    variations on the current system.
+    Builds an AttributeDict of data about each of the support VSCode editor variations on the
+    current system.
 
     Keyword Arguments:
-        tunnel {Tunnel} -- An SSH tunnel connection, which is used to make
-        remote requests as part of building the editor information
-        (default: {None})
+        tunnel {Tunnel} -- An SSH tunnel connection, which is used to make remote requests as
+            part of building the editor information (default: {None})
 
     Returns
         AttributeDict

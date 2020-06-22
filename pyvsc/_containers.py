@@ -1,10 +1,7 @@
-from __future__ import print_function, absolute_import
+"""Custom program container classes"""
 
 import re
-import base64
 
-from uuid import uuid4
-from cryptography.fernet import Fernet
 from pyvsc._config import _DEFAULT_SSH_PORT, _DEFAULT_SSH_USER
 
 
@@ -42,14 +39,11 @@ def ConnectionParts(hostname, username=None, port=None, password=None):
     Returns:
         AttributeDict
     """
-    cipher = Fernet(Fernet.generate_key())
     return AttributeDict({
         'hostname': hostname,
         'username': username or _DEFAULT_SSH_USER,
         'port': port or _DEFAULT_SSH_PORT,
         'password': password,
-        # 'password': cipher.encrypt(password) if password else None,
-        # 'cipher': cipher,
     })
 
 

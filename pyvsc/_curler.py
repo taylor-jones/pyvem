@@ -1,4 +1,4 @@
-from __future__ import print_function, absolute_import
+"""Convert requests.requests to cURL requests"""
 
 import sys
 import json
@@ -12,19 +12,16 @@ else:
 
 class CurledRequest():
     def _convert_to_curl_command(
-        self,
-        request,
-        compressed=True,
-        verify=True,
-        allow_redirects=True,
-        output=None
+            self,
+            request,
+            compressed=True,
+            verify=True,
+            allow_redirects=True,
+            output=None
     ):
         # maintain a list of request parts, which are tuples comprised of the
         # "option identifier" and "value" of a given part of the request.
-        parts = [
-            ('curl', None),
-            ('-X', request.method),
-        ]
+        parts = [('curl', None), ('-X', request.method)]
 
         # add all the request headers to the list of request parts.
         for k, v in sorted(request.headers.items()):
@@ -89,7 +86,8 @@ class CurledRequest():
             prepared_request,
             allow_redirects=allow_redirects,
             compressed=compressed,
-            output=output)
+            output=output
+        )
 
         return curled_request
 
@@ -111,32 +109,4 @@ class CurledRequest():
 
     def post(self, url, data={}, headers={}, **kwargs):
         kwargs.setdefault('compressed', True)
-        return self.request(
-            'POST', url, data=json.dumps(data), headers=headers, **kwargs)
-
-
-
-# # import os
-# from pyvsc._tunnel import Tunnel
-# from pyvsc._containers import ConnectionParts
-# from beeprint import pp
-
-# _ssh_host = ConnectionParts(hostname='centos', password='pass')
-# _ssh_gateway = ConnectionParts(hostname='centos2', password='pass')
-# _tunnel = Tunnel(_ssh_host, _ssh_gateway, True)
-
-# curled_request = CurledRequest()
-
-# url = 'https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery'
-# data = {'filters': [{'pageNumber': 1, 'pageSize': 1, 'criteria': [{'filterType': 8, 'value': 'Microsoft.VisualStudio.Code'}, {'filterType': 7, 'value': 'twxs.cmake'}]}], 'flags': 17375}
-# headers = {'Accept': 'application/json;api-version=6.0-preview.1', 'Accept-Encoding': 'gzip', 'Content-Type': 'application/json'}
-
-# x = curled_request.post(url, data=data, headers=headers)
-# print(type(x))
-# print(x)
-
-# res = _tunnel.run(x, hide=True)
-# print(type(res))
-# print('stdout: %s' % res.stdout)
-# print('stderr: %s' % res.stderr)
-# pp(res)
+        return self.request('POST', url, data=json.dumps(data), headers=headers, **kwargs)

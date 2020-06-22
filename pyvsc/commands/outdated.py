@@ -1,8 +1,7 @@
-from __future__ import print_function, absolute_import
+"""Outdated command implementation"""
 
 import configargparse
 from fuzzywuzzy import process
-from beeprint import pp
 
 from rich.console import Console
 from rich.table import Table
@@ -25,13 +24,13 @@ _LOGGER = get_rich_logger(__name__, console=_console)
 _HELP = Help(
     name='outdated',
     brief='Show extensions that can be updated',
-    synopsis='{prog} outdated\n'
-             '{prog} outdated [[<extension> ...]]\n'
-             '{prog} outdated [[<extension> ...]] [[--<editor>]]\n'
-             '{prog} outdated [[--<editor>]]\n'
-             '{prog} outdated [[--editors]]\n'
-             '{prog} outdated [[--all-editors]]\n\n'
-             '[h2]aliases:[/h2] {prog} dated\n'.format(prog=_PROG),
+    synopsis=f'{_PROG} outdated\n'
+             f'{_PROG} outdated [[<extension> ...]]\n'
+             f'{_PROG} outdated [[<extension> ...]] [[--<editor>]]\n'
+             f'{_PROG} outdated [[--<editor>]]\n'
+             f'{_PROG} outdated [[--editors]]\n'
+             f'{_PROG} outdated [[--all-editors]]\n\n'
+             f'[h2]aliases:[/h2] {_PROG} dated\n',
     description='This command will check the VSCode Marketplace to see if '
                 'any (or, specific) installed extensions have releases that '
                 'are newer than the local versions.'
@@ -80,8 +79,9 @@ class OutdatedCommand(Command):
     The OutdatedCommand class defines the "outdated" command. This class
     inherits from the base Command class.
     """
-    def __init__(self, name, aliases=[]):
-        super().__init__(name, _HELP, aliases=aliases)
+    def __init__(self, name, aliases=None):
+        self.system_editors = None
+        super().__init__(name, _HELP, aliases=aliases or [])
 
 
     def get_command_parser(self, *args, **kwargs):
@@ -129,26 +129,22 @@ class OutdatedCommand(Command):
         return parser
 
 
-    def _get_dest_editors(self, target_arg=[]):
+    def _get_dest_editors(self, target_arg=None):
         """
-        Inspects the target/destination of the command argument to determine
-        which VSCode-like editor(s) are the intended target for which to check
-        for outdated extensions.
+        Inspects the target/destination of the command argument to determine which VSCode-like
+        editor(s) are the intended target for which to check for outdated extensions.
 
-        This function uses fuzzy matching with a pre-determined threshold to
-        find matching code editor names that match enough to be considered the
-        intended target editor destinations. The purpose of this is to allow a
-        small amount of leeway in what target names the user provides and how
-        the program interprets them.
+        This function uses fuzzy matching with a pre-determined threshold to find matching code
+        editor names that match enough to be considered the intended target editor destinations.
+        The purpose of this is to allow a small amount of leeway in what target names the user
+        provides and how the program interprets them.
 
-        For instance, with a fuzzy-matching threshold of 85% (the default), a
-        user could provide an intended target of 'code', 'vscode', 'vs.code',
-        or 'vs-code', and each of those values would resolve to the base
-        Visual Studio Code editor.
+        For instance, with a fuzzy-matching threshold of 85% (the default), a user could provide
+        an intended target of 'code', 'vscode', 'vs.code', or 'vs-code', and each of those values
+        would resolve to the base Visual Studio Code editor.
 
-        In the event that the target editor is not able to be resolved to the
-        name of a known, supported code editor, then no value is added to the
-        set of resolved targets.
+        In the event that the target editor is not able to be resolved to the name of a known,
+        supported code editor, then no value is added to the set of resolved targets.
 
         Keyword Arguments:
             target_arg {list} -- A list of strings to compare against the names
@@ -158,6 +154,7 @@ class OutdatedCommand(Command):
             set -- A unique set of matching code editor names.
         """
         targets = set()
+        target_arg = target_arg or []
         for target in target_arg:
             # find the single best match from the list of known, supported
             # code editors (that matches above the specified threshold)
@@ -198,18 +195,18 @@ class OutdatedCommand(Command):
         Arguments:
             requested_targets {set} -- set of requested editor names.
         """
-        for req in requested_targets:
-            target = self.system_editors[req]
-            id = target.editor_id
+        for requested_target in requested_targets:
+            target = self.system_editors[requested_target]
 
             if not target.installed:
-                _LOGGER.error('Cannot inspect editor "{}". It\'s either not '
-                              'installed or not on the PATH.'.format(id))
-                requested_targets.remove(req)
+                _LOGGER.error('Cannot inspect editor "%s". It\'s either not '
+                              'installed or not on the PATH.', target.editor_id)
+                requested_targets.remove(requested_target)
+
         return requested_targets
 
 
-    def _get_outdated_extensions_for_editor(self, editor_id, extensions=[]):
+    def _get_outdated_extensions_for_editor(self, editor_id, extensions=None):
         """
         Queries the VSCode marketplace to check for newer versions of any of
         the extensions installed for a given code editor.
@@ -230,24 +227,23 @@ class OutdatedCommand(Command):
         all_extensions = editor.get_extensions()
         extensions_to_check = (
             all_extensions if not extensions
-            else [x for x in all_extensions if x['unique_id'] in extensions])
+            else [x for x in all_extensions if x['unique_id'] in extensions]
+        )
 
         # Send a warning for any extensions that were specified but arent
         # installed to the current editor.
         for x in extensions:
             if x not in extensions_to_check:
-                _LOGGER.warning('{} is not installed to {}'.format(
-                    x, editor['editor_id']))
+                _LOGGER.warning('%s is not installed to %s', x, editor['editor_id'])
 
         # Check each of the determined extensions for newer remote versions
         # in the VSCode Marketplace.
         for extension in extensions_to_check:
             uid = extension['unique_id']
-            _LOGGER.info('Checking extension: {}'.format(uid))
+            _LOGGER.info('Checking extension: %s', uid)
 
             installed_version = extension['version']
-            response = Command.marketplace.get_extension_latest_version(
-                uid, editor.get_engine())
+            response = Command.marketplace.get_extension_latest_version(uid, editor.engine)
 
             last_updated = response['lastUpdated']
             latest_version = response['versions'][0]['version']
@@ -260,32 +256,28 @@ class OutdatedCommand(Command):
         return outdated
 
 
-    def _get_outdated_extensions_for_editors(self, editor_ids, extensions=[]):
+    def _get_outdated_extensions_for_editors(self, editor_ids, extensions=None):
         """
-        Iterates over each of the target editors, inspects each of the
-        extensions for that editor, then prints a rich table showing a list
-        of outdated extensions for that editor.
+        Iterates over each of the target editors, inspects each of the extensions for that editor,
+        then prints a rich table showing a list of outdated extensions for that editor.
 
         Arguments:
             editor_ids {list} -- A list of supported editor ids.
         """
-        for id in editor_ids:
-            table = Table(box=box.SQUARE, title=id, title_style='bold magenta')
+        for editor_id in editor_ids:
+            table = Table(box=box.SQUARE, title=editor_id, title_style='bold magenta')
             table.add_column('Extension ID', justify='left', no_wrap=True)
             table.add_column('Installed', justify='right', no_wrap=True)
             table.add_column('Latest', justify='right', no_wrap=True)
             table.add_column('Last Update', justify='right', no_wrap=True)
 
-            outdated_extensions = \
-                self._get_outdated_extensions_for_editor(id, extensions)
-
+            outdated_extensions = self._get_outdated_extensions_for_editor(editor_id, extensions)
             if outdated_extensions:
                 for ext in outdated_extensions:
-                    table.add_row(
-                        ext['unique_id'],
-                        ext['version'],
-                        ext['latest'],
-                        ext['last_updated'])
+                    table.add_row(ext['unique_id'],
+                                  ext['version'],
+                                  ext['latest'],
+                                  ext['last_updated'])
 
                 _console.print(table)
             else:
@@ -306,7 +298,8 @@ class OutdatedCommand(Command):
                 outdated.append((
                     editor.editor_id,
                     editor.version or '---',
-                    editor.latest_version))
+                    editor.latest_version,
+                ))
 
         if outdated:
             # print the rich table of any outdated editors
@@ -327,7 +320,7 @@ class OutdatedCommand(Command):
         # build a parser that's specific to the 'outdated' command and parse
         # the 'outdated' command arguments.
         parser = self.get_command_parser()
-        args, remainder = parser.parse_known_args()
+        args, _ = parser.parse_known_args()
         args.target = [Command.main_options.target]
 
         # Remove the leading "outdated" command from the arguments
@@ -348,8 +341,7 @@ class OutdatedCommand(Command):
             self._get_outdated_editors(args.all_editors)
         else:
             # Get the outdated extensions
-            self._get_outdated_extensions_for_editors(
-                target_editors, args.extensions)
+            self._get_outdated_extensions_for_editors(target_editors, args.extensions)
 
 
 #

@@ -1,4 +1,4 @@
-from __future__ import print_function, absolute_import
+"""Connect to and query the VSCode marketplace."""
 
 import json
 from textwrap import dedent
@@ -11,16 +11,8 @@ from rich import box
 
 from pyvsc._logging import get_rich_logger
 from pyvsc._curler import CurledRequest
-from pyvsc._models import (
-    ExtensionQueryFilterType,
-    ExtensionQueryFlags,
-    ExtensionQuerySortByTypes,
-)
-from pyvsc._util import (
-    dict_from_list_key,
-    human_number_format,
-    shell_dimensions,
-)
+from pyvsc._models import ExtensionQueryFilterType, ExtensionQueryFlags, ExtensionQuerySortByTypes
+from pyvsc._util import dict_from_list_key, human_number_format
 
 
 _MARKETPLACE_BASE_URL = 'https://marketplace.visualstudio.com'
@@ -35,8 +27,10 @@ _console = Console()
 _LOGGER = get_rich_logger(__name__, console=_console)
 
 
-
 class Marketplace():
+    """
+    The Marketplace class queries the VSCode Marketplace.
+    """
     def __init__(self, tunnel=None):
         self.tunnel = tunnel
 
@@ -61,12 +55,12 @@ class Marketplace():
 
 
     def _extension_query(
-        self,
-        page_number=1,
-        page_size=1,
-        flags=[],
-        criteria=[],
-        sort_by=ExtensionQuerySortByTypes.Relevance,
+            self,
+            page_number=1,
+            page_size=1,
+            flags=[],
+            criteria=[],
+            sort_by=ExtensionQuerySortByTypes.Relevance,
     ):
         """
         Query the marketplace for extensions
@@ -91,8 +85,7 @@ class Marketplace():
         }
 
         headers = {
-            'Accept': 'application/json;api-version={}'.format(
-                _MARKETPLACE_API_VERSION),
+            'Accept': f'application/json;api-version={_MARKETPLACE_API_VERSION}',
             'Accept-Encoding': 'gzip',
             'Content-Type': 'application/json',
         }
@@ -106,16 +99,15 @@ class Marketplace():
 
         if result.exited == 0:
             parsed = json.loads(result.stdout)
-            _TARGET_PROPERTY = 'results'
+            target_property = 'results'
 
-            if _TARGET_PROPERTY in parsed.keys():
-                return parsed[_TARGET_PROPERTY][0]['extensions']
-            else:
-                return parsed['message']
-        else:
-            # check stderr
-            _LOGGER.error(result.stderr)
-            return []
+            if target_property in parsed.keys():
+                return parsed[target_property][0]['extensions']
+            return parsed['message']
+
+        # check stderr
+        _LOGGER.error(result.stderr)
+        return []
 
 
     def get_extension(self, unique_id, flags=[], filters=[]):
@@ -132,20 +124,17 @@ class Marketplace():
             dict or None -- A dict from the JSON response of the HTTP request
                 or None if no matching extension was found.
         """
-        criteria = [
-            {
-                'filterType': ExtensionQueryFilterType.InstallationTarget,
-                'value': 'Microsoft.VisualStudio.Code'
-            },
-            {
-                'filterType': ExtensionQueryFilterType.Name,
-                'value': unique_id
-            },
-        ]
+        criteria = [{
+            'filterType': ExtensionQueryFilterType.InstallationTarget,
+            'value': 'Microsoft.VisualStudio.Code'
+        }, {
+            'filterType': ExtensionQueryFilterType.Name,
+            'value': unique_id
+        }]
 
         # Append any additional filters that were provided.
-        for filter in filters:
-            criteria.append(filter)
+        for query_filter in filters:
+            criteria.append(query_filter)
 
         extensions = self._extension_query(
             criteria=criteria,
@@ -157,32 +146,35 @@ class Marketplace():
 
     def _rating(self, x):
         return '{:0.2f}'.format(dict_from_list_key(
-            x['statistics'], 'statisticName', 'weightedRating')['value'])
+            x['statistics'], 'statisticName', 'weightedRating'
+        )['value'])
 
 
     def _rating_count(self, x):
-        count = dict_from_list_key(
-            x['statistics'], 'statisticName', 'ratingcount')
+        count = dict_from_list_key(x['statistics'], 'statisticName', 'ratingcount')
         return count['value'] if count else 0
 
 
     def _engine(self, x):
         return '%s' % dict_from_list_key(
             x['versions'][0]['properties'], 'key',
-            'Microsoft.VisualStudio.Code.Engine')['value']
+            'Microsoft.VisualStudio.Code.Engine'
+        )['value']
 
 
     def _dependencies(self, x):
         key = dict_from_list_key(
             x['versions'][0]['properties'], 'key',
-            'Microsoft.VisualStudio.Code.ExtensionDependencies')
+            'Microsoft.VisualStudio.Code.ExtensionDependencies'
+        )
         return (key['value'] or 'None') if key else None
 
 
     def _extension_pack(self, x):
         key = dict_from_list_key(
             x['versions'][0]['properties'], 'key',
-            'Microsoft.VisualStudio.Code.ExtensionPack')
+            'Microsoft.VisualStudio.Code.ExtensionPack'
+        )
         return (key['value'] or 'None') if key else None
 
 
@@ -213,8 +205,7 @@ class Marketplace():
             search_results {list} -- A list of search query results
         """
         def _unique_id(x):
-            return '{}.{}'.format(
-                x['publisher']['publisherName'], x['extensionName'])
+            return '{}.{}'.format(x['publisher']['publisherName'], x['extensionName'])
 
         def _last_updated(x):
             return self._formatted_date(x['versions'][0]['lastUpdated'])
@@ -267,38 +258,54 @@ class Marketplace():
     def get_extension_latest_version(self, unique_id, engine_version):
         flags = [ExtensionQueryFlags.IncludeLatestVersionOnly]
 
-        # _LOGGER.critical('unique_id: {}'.format(unique_id))
-        # _LOGGER.critical('engine_version: {}'.format(engine_version))
-
         filters = [{
             'filterType': ExtensionQueryFilterType.InstallationTargetVersion,
             'value': engine_version,
         }]
 
-        response = self.get_extension(unique_id, flags=flags)
+        response = self.get_extension(unique_id, flags=flags, filters=filters)
 
         if not response:
             return self._show_no_results()
-        elif isinstance(response, str):
+
+        if isinstance(response, str):
             _LOGGER.error(response)
 
         return response
 
 
-    def get_extension_info(self, unique_id,
-                           flags=[ExtensionQueryFlags.AllAttributes]):
+    def get_extension_info(self, unique_id, flags=None):
+        """
+        Display information from the VSCode Marketplace about a specific extension.
 
-        e = self.get_extension(unique_id, flags=flags)
+        Args:
+            unique_id (str): The extension unique id
+            flags (list, optional): Search flags. Defaults to [ExtensionQueryFlags.AllAttributes].
+
+        Returns:
+            None:
+        """
+        e = self.get_extension(unique_id, flags=flags or [ExtensionQueryFlags.AllAttributes])
 
         if not e:
             return self._show_no_results()
-        elif isinstance(e, str):
-            _LOGGER.error(e)
+
+        if isinstance(e, str):
+            _LOGGER.error('Could not get info for extension "%s". %s', unique_id, e)
             return
 
         def _tags(x):
-            return ', '.join(list(filter(
-                lambda t: not t.startswith('__'), x['tags'])))
+            """
+            Filter the list of extension tags, removing any that have names beginning
+            with leading double underscores.
+
+            Args:
+                x (dict): A dictionary with a 'tags' attribute
+
+            Returns:
+                str: A comma-delimited, filtered list of extension tags
+            """
+            return ', '.join(list(filter(lambda t: not t.startswith('__'), x['tags'])))
 
         output = '''
         {:30} {:30}
@@ -335,12 +342,12 @@ class Marketplace():
 
 
     def search_extensions(
-        self,
-        search_text,
-        page_size=15,
-        sort_by=ExtensionQuerySortByTypes.Relevance,
-        flags=[],
-        **kwargs,
+            self,
+            search_text,
+            page_size=15,
+            sort_by=ExtensionQuerySortByTypes.Relevance,
+            flags=None,
+            **kwargs,
     ):
         """
         Gets a list of search results from the VSCode Marketplace.

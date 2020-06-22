@@ -1,3 +1,5 @@
+"""VSCode Marketplace interfaces"""
+
 from pyvsc._containers import AttributeDict
 
 '''
@@ -10,13 +12,11 @@ ExtensionQueryFilterType = AttributeDict({
     #
     'Tag': 1,
     #
-    # The Values are an ExtensionName or fragment that is used to match other
-    # extension names.
+    # The Values are an ExtensionName or fragment that is used to match other extension names.
     #
     'DisplayName': 2,
     #
-    # The Filter is one or more tokens that define what scope to return private
-    # extensions for.
+    # The Filter is one or more tokens that define what scope to return private extensions for.
     #
     'Private': 3,
     #
@@ -45,8 +45,7 @@ ExtensionQueryFilterType = AttributeDict({
     #
     'InstallationTarget': 8,
     #
-    # Query for featured extensions, no value is allowed when using the query
-    # type.
+    # Query for featured extensions, no value is allowed when using the query type.
     #
     'Featured': 9,
     #
@@ -59,15 +58,13 @@ ExtensionQueryFilterType = AttributeDict({
     #
     'FeaturedInCategory': 11,
     #
-    # When retrieving extensions from a query, exclude the extensions which are
-    # having the given flags. The value specified for this filter should be a
-    # string representing the integer values of the flags to be excluded. In
-    # case of mulitple flags to be specified, a logical OR of the interger
-    # values should be given as value for this filter This should be at most
-    # one filter of this type. This only acts as a restrictive filter after.
-    # In case of having a particular flag in both IncludeWithFlags and
-    # ExcludeWithFlags, excludeFlags will remove the included extensions
-    # giving empty result for that flag.
+    # When retrieving extensions from a query, exclude the extensions which are having the given
+    # flags. The value specified for this filter should be a string representing the integer values
+    # of the flags to be excluded. In case of mulitple flags to be specified, a logical OR of the
+    # interger values should be given as value for this filter This should be at most one filter
+    # of this type. This only acts as a restrictive filter after. In case of having a particular
+    # flag in both IncludeWithFlags and ExcludeWithFlags, excludeFlags will remove the included
+    # extensions giving empty result for that flag.
     #
     'ExcludeWithFlags': 12,
     #
@@ -104,18 +101,15 @@ ExtensionQueryFilterType = AttributeDict({
     #
     'InstallationTargetVersionRange': 16,
     #
-    # Filter type for specifying metadata key and value to be used for
-    # filtering.
+    # Filter type for specifying metadata key and value to be used for filtering.
     #
     'VsixMetadata': 17,
     #
-    # Filter to get extensions published by a publisher having supplied
-    # internal name
+    # Filter to get extensions published by a publisher having supplied internal name
     #
     'PublisherName': 18,
     #
-    # Filter to get extensions published by all publishers having supplied
-    # display name
+    # Filter to get extensions published by all publishers having supplied display name
     #
     'PublisherDisplayName': 19,
     #

@@ -1,18 +1,12 @@
-"""
-Help class that is used within Command instances to organize
-the components of a Help output message.
-"""
-from __future__ import print_function, absolute_import
+"""Help class used within Command instances to organize the components of a Help output message"""
+
 import re
+from textwrap import dedent
 
 from rich.console import Console
 from rich.text import Text
-from rich.containers import Lines
-from rich.theme import Theme
-from textwrap import dedent
 
-from pyvsc._containers import AttributeDict
-from pyvsc._util import shell_dimensions, less
+from pyvsc._util import shell_dimensions
 from pyvsc._config import rich_theme
 
 _DEFAULT_WRAP_WIDTH = 80
@@ -25,8 +19,7 @@ _console = Console(theme=rich_theme)
 
 def _rich_wrapped(text, style):
     """
-    Prepares a string for rich formatting by wrapping it in rich-formatted
-    syntax.
+    Prepares a string for rich formatting by wrapping it in rich-formatted syntax.
 
     Arguments:
         text {str} -- The text to return as rich-formatted
@@ -42,8 +35,7 @@ def _rich_wrapped(text, style):
 
 def _rich_themed(text, style, theme=rich_theme):
     """
-    Prepares a string for rich formatting by wrapping it in rich-formatted
-    syntax.
+    Prepares a string for rich formatting by wrapping it in rich-formatted syntax.
 
     Arguments:
         text {str} -- The text to return as rich-formatted
@@ -83,9 +75,8 @@ def _current_wrap_width():
 
 def _wrap(content, pad_size=_DEFAULT_PAD_SIZE):
     """
-    Wraps a string such that it fits within the current console width,
-    while padding each line of the wrapped text with a specified amount
-    of padding.
+    Wraps a string such that it fits within the current console width, while padding each
+    line of the wrapped text with a specified amount of padding.
 
     Arguments:
         content {str} -- a string to wrap
@@ -121,19 +112,20 @@ def _remove_leading_underscore(text):
     return re.sub('^[^A-Za-z]*', '', text)
 
 
-class Help(object):
+class Help():
+    """Help class implementation"""
+    # pylint: disable=too-many-arguments
     def __init__(
-        self,
-        name,
-        brief=None,
-        synopsis=None,
-        description=None,
-        options=None,
-        sub_commands=None,
-        additional_details=None,
+            self,
+            name,
+            brief=None,
+            synopsis=None,
+            description=None,
+            options=None,
+            sub_commands=None,
+            additional_details=None,
     ):
         super().__init__()
-
         self._name = name
         self._brief = brief
         self._synopsis = synopsis
@@ -145,9 +137,8 @@ class Help(object):
 
     def _generate_from_property(self, prop, titlecase=False):
         """
-        Uses an underscored property name to generate both a heading for the
-        corresponding help section and format the content for the body of the
-        corresponding help section.
+        Uses an underscored property name to generate both a heading for the corresponding
+        help section and format the content for the body of the corresponding help section.
 
         Arguments:
             prop {str} -- A property name representing an internal property.
@@ -159,7 +150,7 @@ class Help(object):
         """
         name = _remove_leading_underscore(prop).upper()
         name = name.replace('_', '-')
-        
+
         if titlecase:
             name = name.title()
 
@@ -169,6 +160,8 @@ class Help(object):
 
 
     def print_help(self):
+        """Print the help output"""
+
         # specify the list of attribute values we'd like to show
         _parts = [
             '_name',
@@ -182,14 +175,11 @@ class Help(object):
         # get a flattened tuple of the corresponding section values
         # for each of the desirbed parts. Only include sections for which
         # values have been set.
-        parts = sum(tuple(
-            getattr(self, _remove_leading_underscore(x))
-            for x in _parts if getattr(self, x)
-        ), ())
+        parts = sum(tuple(getattr(self, _remove_leading_underscore(x))
+                          for x in _parts if getattr(self, x)), ())
 
         # print each of the sections we found.
-        # TODO: Figure out how to capture/supress this, so I can use less
-        # for paging the output.
+        # TODO: Figure out how to capture/supress this, so I can use less for paging the output.
         _console.print(*parts, sep='\n', end='\n', highlight=False)
         # output = _console.export_text(clear=False, styles=True)
         # less(output)
@@ -205,7 +195,8 @@ class Help(object):
         heading = _text.from_markup(_rich_command_heading('\nNAME'))
         name_and_brief = '{name}{brief}'.format(
             name=self._name,
-            brief=' -- %s' % self._brief if self._brief else '')
+            brief=' -- %s' % self._brief if self._brief else ''
+        )
         body = _wrap(name_and_brief)
         return heading, body
 
@@ -228,4 +219,3 @@ class Help(object):
     @property
     def additional_details(self):
         return self._generate_from_property('_additional_details')
-

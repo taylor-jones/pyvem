@@ -1,3 +1,12 @@
+"""Misc utility functions"""
+
+import datetime
+import math
+import os
+import socket
+import subprocess
+
+
 def props(cls):
     """
     Return the non-local/non-"private" class key names.
@@ -23,7 +32,7 @@ def get_public_attributes(obj):
     return attributes
 
 
-def resolved_path(p):
+def resolved_path(path):
     """
     Resolve and normalize a path by:
     - handling tilde expansion
@@ -32,29 +41,27 @@ def resolved_path(p):
     - resolving symbolic links
 
     Arguments:
-        p {str} -- A file-system path
+        path {str} -- A file-system path
 
     Returns:
         str
     """
-    from os import path
-    return path.realpath(path.expandvars(path.expanduser(p)))
+    return os.path.realpath(os.path.expandvars(os.path.expanduser(path)))
 
 
-def expanded_path(p):
+def expanded_path(path):
     """
     Expand a path to resolve variables, home directory, and relative paths
     and returns an absolute path.
 
     Arguments:
-        p {str} -- A file-system path
+        path {str} -- A file-system path
 
     Returns:
-        str -- An expanded file-system path, regardless of whether or not the
-            path actually exists.
+        str -- An expanded file-system path, regardless of whether or not
+            the path actually exists.
     """
-    from os import path
-    return path.abspath(path.expandvars(path.expanduser(p)))
+    return os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
 
 
 def has_internet_connection():
@@ -64,11 +71,10 @@ def has_internet_connection():
     Returns:
         bool
     """
-    import socket
     try:
         host = socket.gethostbyname('1.1.1.1')
-        s = socket.create_connection((host, 80), 2)
-        s.close()
+        sock = socket.create_connection((host, 80), 2)
+        sock.close()
         return True
     except OSError:
         return False
@@ -76,8 +82,8 @@ def has_internet_connection():
 
 def truthy_list(the_list):
     """
-    Remove "falsy" elements from a list, leaving only the elements that
-    evaluate to True
+    Remove "falsy" elements from a list, leaving only the elements
+    that evaluate to True
 
     Arguments:
         the_list {list} -- The list to filter
@@ -107,14 +113,14 @@ def dict_from_list_key(the_list, key, value, default_response=None):
     """
     data_type = type(the_list)
     if data_type is not list:
-        raise AttributeError(
-            'Expected a list, got a %s' % data_type.__name__)
+        raise AttributeError('Expected a list, got a %s' % data_type.__name__)
+
     try:
         return next(x for x in the_list if x.get(key) == value)
     except TypeError:
         return default_response
-    except Exception as e:
-        print(e)
+    except (KeyError, AttributeError, ValueError, StopIteration) as err:
+        print(err)
         return default_response
 
 
@@ -128,10 +134,10 @@ def human_number_format(number):
     Returns:
         str -- The human-friendly-formatted string version of the number
     """
-    from math import log, floor
     units = ['', 'K', 'M', 'G', 'T', 'P']
     k = 1000.0
-    magnitude = int(floor(log(number, k)))
+    magnitude = int(math.floor(math.log(number, k)))
+
     if magnitude == 0:
         return '%d%s' % (number / k**magnitude, units[magnitude])
     return '%.1f%s' % (number / k**magnitude, units[magnitude])
@@ -144,8 +150,7 @@ def shell_dimensions():
     Returns:
         tuple(int, int)
     """
-    from subprocess import Popen, PIPE
-    with Popen(['stty', 'size'], stdout=PIPE, encoding='utf-8') as proc:
+    with subprocess.Popen(['stty', 'size'], stdout=subprocess.PIPE, encoding='utf-8') as proc:
         rows, columns = proc.stdout.readline().split(' ')
         return int(rows), int(columns)
 
@@ -158,8 +163,7 @@ def less(content):
     Arguments:
         content {str} -- The content to display
     """
-    from subprocess import Popen, PIPE
-    process = Popen(["less"], stdin=PIPE)
+    process = subprocess.Popen(["less"], stdin=subprocess.PIPE)
 
     try:
         process.stdin.write(content)
@@ -179,12 +183,10 @@ def iso_now(include_microseconds=False, format_for_path=True):
     Returns:
         str
     """
-    from datetime import datetime
-
     if include_microseconds:
-        output = datetime.now().isoformat()
+        output = datetime.datetime.now().isoformat()
     else:
-        output = datetime.now().replace(microsecond=0).isoformat()
+        output = datetime.datetime.now().replace(microsecond=0).isoformat()
 
     if format_for_path:
         output = output.replace(':', '')
@@ -209,11 +211,11 @@ def delimit(iterable, delimiter=', ', falsy_return_value=''):
             (default: {''})
 
     Returns:
-        [type] -- [description]
+        str
     """
     try:
         return delimiter.join(iterable)
-    except Exception as e:
+    except (TypeError, AttributeError):
         return falsy_return_value
 
 

@@ -1,11 +1,12 @@
-from __future__ import print_function
-from distutils.spawn import find_executable
+"""Tests functionality of the editor module."""
+
 
 import os
+import subprocess
 import sys
 import unittest
+
 import requests
-import subprocess
 
 from pyvsc._editor import get_editors
 from pyvsc.tests.test_util import (
@@ -14,19 +15,30 @@ from pyvsc.tests.test_util import (
     github_get
 )
 
+
 _tunnel = get_dummy_tunnel_connection(True)
 _editors = get_editors(_tunnel)
 
 
+# pylint: disable=missing-class-docstring, missing-function-docstring, invalid-name
 class TestEditorAttributes(unittest.TestCase):
     def test_editors_can_determine_if_installed(self):
         for e in _editors.keys():
             self.assertIsNotNone(_editors[e].installed)
 
+    def test_installed_editors_have_extensions_directory(self):
+        for e in _editors.keys():
+            extensions_dir = _editors[e].extensions_dir
+            editor_id = _editors[e].editor_id
+            if _editors[e].installed:
+                self.assertIsNotNone(extensions_dir, f'{editor_id} should have an extensions dir.')
+
     def test_installed_editors_have_existing_home_directory(self):
         for e in _editors.keys():
             if _editors[e].installed:
-                self.assertTrue(os.path.isdir(_editors[e].extensions_dir))
+                extensions_dir = _editors[e].extensions_dir
+                self.assertTrue(os.path.isdir(extensions_dir),
+                                f'{extensions_dir} is not a directory.')
 
     def test_installed_editors_are_on_path(self):
         for e in _editors.keys():
@@ -35,9 +47,7 @@ class TestEditorAttributes(unittest.TestCase):
                 try:
                     subprocess.check_call(cmd, stdout=subprocess.PIPE)
                 except subprocess.CalledProcessError:
-                    self.fail(
-                        '%s was determined to be installed but could not'
-                        ' be invoked' % _editors[e].command)
+                    self.fail(f'{_editors[e].command} is installed but could not be invoked.')
             else:
                 with self.assertRaises(subprocess.CalledProcessError):
                     subprocess.check_call(cmd, stdout=subprocess.PIPE)
@@ -57,8 +67,7 @@ class TestEditorDownloadUrls(unittest.TestCase):
     def test_updatable_editors_have_download_url(self):
         for e in _editors.keys():
             if _editors[e].can_update:
-                self.assertTrue(
-                    _editors[e].download_url.startswith('https://'))
+                self.assertTrue(_editors[e].download_url.startswith('https://'))
 
     def test_code_download_url_is_valid(self):
         url = _editors.code.download_url
@@ -89,6 +98,7 @@ class TestEditorDownloadUrls(unittest.TestCase):
 
 def test_suite():
     return unittest.findTestCases(sys.modules[__name__])
+
 
 if __name__ == "__main__":
     unittest.main(defaultTest='test_suite')

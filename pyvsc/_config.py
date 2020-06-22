@@ -1,3 +1,5 @@
+"""General program configurations"""
+
 from fabric.util import get_local_user
 from rich.theme import Theme
 
@@ -16,6 +18,7 @@ rich_theme = Theme({
     'var': 'cornflower_blue',
     'example': 'italic grey58',
     'path': 'grey58',
-    'error': 'bold red',
+    'error': 'red',
+    'warning': 'gold3',
     'todo': 'bold bright_magenta on purple4',
 }, inherit=True)
