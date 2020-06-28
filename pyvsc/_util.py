@@ -80,27 +80,27 @@ def has_internet_connection():
         return False
 
 
-def truthy_list(the_list):
+def truthy_list(list_to_filter):
     """
     Remove "falsy" elements from a list, leaving only the elements
     that evaluate to True
 
     Arguments:
-        the_list {list} -- The list to filter
+        list_to_filter {list} -- The list to filter
 
     Returns:
         list -- The filtered list
     """
-    return list(filter(None, the_list))
+    return list(filter(None, list_to_filter))
 
 
-def dict_from_list_key(the_list, key, value, default_response=None):
+def dict_from_list_key(list_to_search, key, value, default_response=None):
     """
     Return the first item from a list of dicts where a specified key in the
     dict matches a specified value
 
     Arguments:
-        the_list {list} -- The list to search
+        list_to_search {list} -- The list to search
         key {str} -- The name of the key to check the value of
         value {str} -- The matching key value to search for
 
@@ -111,12 +111,12 @@ def dict_from_list_key(the_list, key, value, default_response=None):
     Returns:
         dict -- The matching dict or None if not found
     """
-    data_type = type(the_list)
+    data_type = type(list_to_search)
     if data_type is not list:
         raise AttributeError('Expected a list, got a %s' % data_type.__name__)
 
     try:
-        return next(x for x in the_list if x.get(key) == value)
+        return next(x for x in list_to_search if x.get(key) == value)
     except TypeError:
         return default_response
     except (KeyError, AttributeError, ValueError, StopIteration) as err:
