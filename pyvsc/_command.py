@@ -4,7 +4,6 @@ import os
 import pathlib
 
 from rich.console import Console
-from rich.traceback import install as install_rich_traceback
 
 from pyvsc._tunnel import Tunnel
 from pyvsc._marketplace import Marketplace
@@ -15,7 +14,6 @@ from pyvsc._logging import get_rich_logger
 
 _console = Console(theme=rich_theme)
 _LOGGER = get_rich_logger(__name__, console=_console)
-install_rich_traceback()
 
 
 class Command():
