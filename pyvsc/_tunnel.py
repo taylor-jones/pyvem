@@ -7,10 +7,10 @@ from getpass import getpass
 from fabric import Connection
 from rich.console import Console
 
-from pyvsc._config import rich_theme
+from pyvsc._config import rich_theme, _PROG
 from pyvsc._containers import ConnectionParts
 from pyvsc._logging import get_rich_logger
-
+from pyvsc._util import delimit
 
 _console = Console(theme=rich_theme)
 _LOGGER = get_rich_logger(__name__, console=_console)
@@ -44,7 +44,9 @@ class Tunnel():
 
         # maintain a list of all the directories we create during processing
         # so we can go back and clean them up before exiting.
-        self.created_dirs = set()
+        self._created_dirs = set()
+
+        # apply the ssh host and gateway attributes that were passed to the constructor
         self.apply(ssh_host, ssh_gateway)
 
         if autoconnect:
@@ -95,8 +97,10 @@ class Tunnel():
                 ignoring whether or not a connection already exists. (default: {False})
         """
         if force or not self.is_connected():
-            self._connection = self.get_connection(ssh_host=ssh_host or self._ssh_host,
-                                                   ssh_gateway=ssh_gateway or self._ssh_gateway)
+            self._connection = self.get_connection(
+                ssh_host=ssh_host or self._ssh_host,
+                ssh_gateway=ssh_gateway or self._ssh_gateway
+            )
 
 
     def is_connected(self):
@@ -167,6 +171,7 @@ class Tunnel():
             return connection
 
         # FIXME: Allow for authentication error a couple times before exiting due to wrong password
+        # TODO: Better handle different kinds of exceptions.
         except Exception as err:
             _LOGGER.error('Failed to connect to host "%s". %s', ssh_host.hostname, err)
             sys.exit(1)
@@ -201,7 +206,7 @@ class Tunnel():
 
         if res.exited == 0:
             _LOGGER.debug('Removed remote directory: "%s:%s"', self._ssh_host.hostname, path)
-            self.created_dirs.remove(path)
+            self._created_dirs.remove(path)
             return True
 
         return False
@@ -224,7 +229,7 @@ class Tunnel():
 
         if res.exited == 0:
             _LOGGER.debug('Created remote directory: "%s:%s"', self._ssh_host.hostname, path)
-            self.created_dirs.add(path)
+            self._created_dirs.add(path)
             return True
 
         return False
@@ -234,16 +239,15 @@ class Tunnel():
         """
         Cleanup directories that were created during processing (if any exist).
         """
-        if not bool(self.created_dirs):
+        if not bool(self._created_dirs):
             _LOGGER.debug('No remote directories need to be cleaned up.')
 
         elif not self.is_connected():
             _LOGGER.error('Tunnel connection was lost. Unable to remove remote directories: %s. '
-                          '\nYou may need to manually remove them.',
-                          ', '.join(list(self.created_dirs)))
+                          '\nYou may need to manually remove them.', delimit(self._created_dirs))
         else:
             # There are directories that need to be removed and the remote connection is active
-            for directory in self.created_dirs:
+            for directory in self._created_dirs:
                 try:
                     self.rmdir(directory)
                 except EnvironmentError as err:
@@ -260,20 +264,27 @@ class Tunnel():
         Returns:
             Result -- The output of executing the command from the remote host
         """
-        self.ensure_connection()
-        result = self._connection.run(command, hide=hide)
-        return result
+        try:
+            self.ensure_connection()
+            return self._connection.run(command, hide=hide)
+        except KeyboardInterrupt:
+            _LOGGER.debug('%s interrupted. Preparing to exit.', _PROG)
+            sys.exit(1)
 
 
     def close(self):
-        """Close the remote SSH connection."""
+        """
+        Close the remote SSH connection.
+        """
         if self._connection is not None:
             self._connection.close()
             _LOGGER.debug('Closed ssh tunnel connection.')
 
 
     def __del__(self):
-        """Close connection in class destructor."""
+        """
+        Close connection in class destructor.
+        """
         try:
             self.close()
         except ImportError:
