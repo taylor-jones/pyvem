@@ -3,7 +3,6 @@
 
 from distutils.spawn import find_executable
 import json
-import logging
 import os
 import re
 import subprocess
@@ -53,7 +52,7 @@ SupportedEditorCommands = AttributeDict({
 })
 
 
-class SupportedEditor():
+class SupportedEditor(AttributeDict):
     """
     Define the attributes of a supported code editor.
     """
@@ -253,24 +252,22 @@ class SupportedEditor():
 
 
     @property
+    def latest_version(self):
+        return self.latest.get('name')
+
+
+    @property
     def can_update(self):
-        try:
-            # check the latest remote version
-            latest = self.latest
-            latest_version = latest.get('name')
+        installed_version = self.engine
+        latest_version = self.latest_version
 
-            # if _LOGGER.isEnabledFor(logging.DEBUG):
-            #     _LOGGER.debug('%s | installed:%s, latest:%s',
-            #                   self.editor_id, self.engine, latest_version)
-
-            # if the installed version doesn't match the latest remote version,
-            # we'll assume the editor can be updated.
-            return self.engine != latest_version
-
-        except (TypeError, ValueError) as err:
-            _LOGGER.debug(err)
-            return False
-
+        # we can update the current editor if all of the following are true:
+        # - we were able to connect to the remote marketplace to identify which version is the
+        #   most-recently-released version of this editor.
+        # - the currently-installed version is older than the latest version OR
+        #   the editor is not currently installed.
+        return latest_version is not None and (
+            installed_version is None or installed_version != latest_version)
 
 
 def set_tunnel_for_editors(tunnel, *editors):
