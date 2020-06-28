@@ -30,47 +30,40 @@ _HELP = Help(
              f'{_PROG} outdated [[--<editor>]]\n'
              f'{_PROG} outdated [[--editors]]\n'
              f'{_PROG} outdated [[--all-editors]]\n\n'
-             f'[h2]aliases:[/h2] {_PROG} dated\n',
-    description='This command will check the VSCode Marketplace to see if '
-                'any (or, specific) installed extensions have releases that '
-                'are newer than the local versions.'
+             f'[h2]aliases:[/h2] {_PROG} dated, {_PROG} old\n',
+    description='This command will check the VSCode Marketplace to see if any (or, specific) '
+                'installed extensions have releases that are newer than the local versions.'
                 '\n\n'
-                'It also provides the ability to check if any (or, specific) '
-                'supported code editors that have releases that are newer than '
-                'the local versions.'
+                'It also provides the ability to check if any (or, specific) supported code '
+                'editors that have releases that are newer than the local versions.'
                 '\n\n'
-                'It will then print a list of results to stdout to indicate '
-                'which extensions (and/or editors) have remote versions that '
-                'are newer than the locally-installed versions.'
+                'It will then print a list of results to stdout to indicate which extensions '
+                '(and/or editors) have remote versions that are newer than the installed versions.'
                 '\n\n'
-                'This command will not ever actually download or install '
-                'anything. It\'s essentially a peek or dry-run to see what '
-                'could be updated.',
+                'This command will not ever actually download or install anything. It\'s '
+                'essentially a peek or dry-run to see what could be updated.',
     options='[h2]--<editor>[/]\n'
             '\t* Type: Code Editor {{{}}}\n'
             '\t* Default: code'
             '\n\n'
-            'Sets the context for which Code Editor the outdated extensions '
-            'check is for. If no extensions are specified, the '
-            '[command]outdated[/] command will check all of the extensions '
-            'installed to the specified Code Editor. If any extensions are '
-            'specified, the [command]outdated[/] command will check for newer '
-            'remote versions for only the specified extensions.'
+            'Sets the context for which Code Editor the outdated extensions check is for. If no '
+            'extensions are specified, the [command]outdated[/] command will check all of the '
+            'extensions installed to the specified Code Editor. If any extensions are specified, '
+            'the [command]outdated[/] command will check for newer remote versions for only the '
+            'specified extensions.'
             '\n\n'
-            '[h2]--editors[/]\n'
-            '\n'
-            'If set, the [command]outdated[/] command will check for newer '
-            'remote versions of Code Editors instead of extensions. This '
-            'option will only check for newer versions of Code Editors that '
-            'are currently installed.'
+            '[h2]--editors[/]'
             '\n\n'
-            '[h2]--all-editors[/]\n'
-            '\n'
-            'Similarly to [command]--editors[/], this option will check for '
-            'newer remote versions of Code Editors instead of extensions. '
-            'Unlike [command]--editors[/], this option will check for newer '
-            'versions of all supported Code Editors, not just those that are '
-            'currently installed.'.format('|'.join(_AVAILABLE_EDITOR_KEYS))
+            'If set, the [command]outdated[/] command will check for newer remote versions of '
+            'Code Editors instead of extensions. This option will only check for newer versions '
+            'of Code Editors that are currently installed.'
+            '\n\n'
+            '[h2]--all-editors[/]'
+            '\n\n'
+            'Similarly to [command]--editors[/], this option will check for newer remote versions '
+            'of Code Editors instead of extensions. Unlike [command]--editors[/], this option '
+            'will check for newer versions of all supported Code Editors, not just those that '
+            'are currently installed.'.format('|'.join(_AVAILABLE_EDITOR_KEYS))
 )
 
 
@@ -86,17 +79,12 @@ class OutdatedCommand(Command):
 
     def get_command_parser(self, *args, **kwargs):
         """
-        Builds and returns an argument parser that is specific to the
-        "outdated" command.
+        Build and return an argument parser that is specific to the "outdated" command.
 
         Returns:
             configargparse.ArgParser
         """
-        parser_kwargs = {
-            'add_help': False,
-            'prog': '{} {}'.format(_PROG, self.name)
-        }
-
+        parser_kwargs = {'add_help': False, 'prog': '{} {}'.format(_PROG, self.name)}
         parser = configargparse.ArgumentParser(**parser_kwargs)
 
         parser.add_argument(
@@ -199,8 +187,8 @@ class OutdatedCommand(Command):
             target = self.system_editors[requested_target]
 
             if not target.installed:
-                _LOGGER.error('Cannot inspect editor "%s". It\'s either not '
-                              'installed or not on the PATH.', target.editor_id)
+                _LOGGER.error('Cannot inspect editor "%s". It\'s either not installed or not '
+                              'on the PATH.', target.editor_id)
                 requested_targets.remove(requested_target)
 
         return requested_targets
@@ -219,28 +207,31 @@ class OutdatedCommand(Command):
                 latest version, and last updated date.
         """
         editor = self.system_editors[editor_id]
+        editor_name = editor['editor_id']
         outdated = []
 
         # if no extensions were specified, check for updates to all of the
         # extensions for the current editor. Otherwise, just check for updates
         # to the specified extensions.
         all_extensions = editor.get_extensions()
-        extensions_to_check = (
-            all_extensions if not extensions
-            else [x for x in all_extensions if x['unique_id'] in extensions]
-        )
+        extensions_to_check = (all_extensions if not extensions
+                               else [x for x in all_extensions if x['unique_id'] in extensions])
 
         # Send a warning for any extensions that were specified but arent
         # installed to the current editor.
         for x in extensions:
-            if x not in extensions_to_check:
-                _LOGGER.warning('%s is not installed to %s', x, editor['editor_id'])
+            if x not in [y['unique_id'] for y in extensions_to_check]:
+                _LOGGER.warning('%s is not installed to %s', x, editor_name)
 
         # Check each of the determined extensions for newer remote versions
         # in the VSCode Marketplace.
-        for extension in extensions_to_check:
+        num_extensions_to_check = len(extensions_to_check)
+        _LOGGER.info('Checking %d %s extensions. This may take a minute...',
+                     num_extensions_to_check, editor_name)
+
+        for index, extension in enumerate(extensions_to_check):
             uid = extension['unique_id']
-            _LOGGER.info('Checking extension: %s', uid)
+            _LOGGER.info('(%d/%d) Checking extension: %s', index + 1, num_extensions_to_check, uid)
 
             installed_version = extension['version']
             response = Command.marketplace.get_extension_latest_version(uid, editor.engine)
@@ -294,10 +285,11 @@ class OutdatedCommand(Command):
         """
         outdated = []
         for editor in self.system_editors.values():
+            _LOGGER.debug('%r, %r', editor, editor.latest_version)
             if editor.can_update and (show_non_installed or editor.installed):
                 outdated.append((
                     editor.editor_id,
-                    editor.version or '---',
+                    editor.engine or '---',  # --- indicates the editor is not installed
                     editor.latest_version,
                 ))
 
@@ -349,5 +341,5 @@ class OutdatedCommand(Command):
 #
 outdated_command = OutdatedCommand(
     name='outdated',
-    aliases=['outdated', 'dated']
+    aliases=['outdated', 'old', 'dated']
 )
