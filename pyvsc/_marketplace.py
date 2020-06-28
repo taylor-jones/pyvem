@@ -35,7 +35,7 @@ class Marketplace():
         self.tunnel = tunnel
 
 
-    def _post(self, endpoint, data={}, headers={}, **kwargs):
+    def _post(self, endpoint, data=None, headers=None):
         """
         Performs a post request to the marketplace gallery.
 
@@ -50,7 +50,7 @@ class Marketplace():
             Requests.response
         """
         url = '%s/_apis/public%s' % (_MARKETPLACE_BASE_URL, endpoint)
-        curl_request = _curled.post(url, data=data, headers=headers)
+        curl_request = _curled.post(url, data=data or {}, headers=headers or {})
         return self.tunnel.run(curl_request)
 
 
@@ -58,8 +58,8 @@ class Marketplace():
             self,
             page_number=1,
             page_size=1,
-            flags=[],
-            criteria=[],
+            flags=None,
+            criteria=None,
             sort_by=ExtensionQuerySortByTypes.Relevance,
     ):
         """
@@ -78,7 +78,7 @@ class Marketplace():
             'filters': [{
                 'pageNumber': page_number,
                 'pageSize': page_size,
-                'criteria': criteria,
+                'criteria': criteria or [],
                 'sortBy': sort_by,
             }],
             'flags': reduce((lambda a, b: a | b), flags) if flags else 0
@@ -90,12 +90,7 @@ class Marketplace():
             'Content-Type': 'application/json',
         }
 
-        result = self._post(
-            '/gallery/extensionquery',
-            data=data,
-            headers=headers,
-            compressed=False
-        )
+        result = self._post('/gallery/extensionquery', data=data, headers=headers)
 
         if result.exited == 0:
             parsed = json.loads(result.stdout)
@@ -110,7 +105,7 @@ class Marketplace():
         return []
 
 
-    def get_extension(self, unique_id, flags=[], filters=[]):
+    def get_extension(self, unique_id, flags=None, filters=None):
         """
         Get the marketplace response for a specific extension
 
@@ -124,16 +119,19 @@ class Marketplace():
             dict or None -- A dict from the JSON response of the HTTP request
                 or None if no matching extension was found.
         """
-        criteria = [{
-            'filterType': ExtensionQueryFilterType.InstallationTarget,
-            'value': 'Microsoft.VisualStudio.Code'
-        }, {
-            'filterType': ExtensionQueryFilterType.Name,
-            'value': unique_id
-        }]
+        criteria = [
+            {
+                'filterType': ExtensionQueryFilterType.InstallationTarget,
+                'value': 'Microsoft.VisualStudio.Code'
+            },
+            {
+                'filterType': ExtensionQueryFilterType.Name,
+                'value': unique_id
+            }
+        ]
 
         # Append any additional filters that were provided.
-        for query_filter in filters:
+        for query_filter in filters or []:
             criteria.append(query_filter)
 
         extensions = self._extension_query(
@@ -144,55 +142,74 @@ class Marketplace():
         return extensions[0] if isinstance(extensions, list) else extensions
 
 
-    def _rating(self, x):
+    @staticmethod
+    def _rating(result):
         return '{:0.2f}'.format(dict_from_list_key(
-            x['statistics'], 'statisticName', 'weightedRating'
+            list_to_search=result['statistics'],
+            key='statisticName',
+            value='weightedRating'
         )['value'])
 
 
-    def _rating_count(self, x):
-        count = dict_from_list_key(x['statistics'], 'statisticName', 'ratingcount')
+    @staticmethod
+    def _rating_count(result):
+        count = dict_from_list_key(
+            list_to_search=result['statistics'],
+            key='statisticName',
+            value='ratingcount'
+        )
         return count['value'] if count else 0
 
 
-    def _engine(self, x):
+    @staticmethod
+    def _engine(result):
         return '%s' % dict_from_list_key(
-            x['versions'][0]['properties'], 'key',
-            'Microsoft.VisualStudio.Code.Engine'
+            list_to_search=result['versions'][0]['properties'],
+            key='key',
+            value='Microsoft.VisualStudio.Code.Engine'
         )['value']
 
 
-    def _dependencies(self, x):
+    @staticmethod
+    def _dependencies(result):
         key = dict_from_list_key(
-            x['versions'][0]['properties'], 'key',
-            'Microsoft.VisualStudio.Code.ExtensionDependencies'
+            list_to_search=result['versions'][0]['properties'],
+            key='key',
+            value='Microsoft.VisualStudio.Code.ExtensionDependencies'
         )
         return (key['value'] or 'None') if key else None
 
 
-    def _extension_pack(self, x):
+    @staticmethod
+    def _extension_pack(result):
         key = dict_from_list_key(
-            x['versions'][0]['properties'], 'key',
-            'Microsoft.VisualStudio.Code.ExtensionPack'
+            list_to_search=result['versions'][0]['properties'],
+            key='key',
+            value='Microsoft.VisualStudio.Code.ExtensionPack'
         )
         return (key['value'] or 'None') if key else None
 
 
-    def _installs(self, x):
+    @staticmethod
+    def _installs(result):
         return human_number_format(float(dict_from_list_key(
-            x['statistics'], 'statisticName', 'install')['value']))
+            list_to_search=result['statistics'],
+            key='statisticName',
+            value='install'
+        )['value']))
 
 
-    def _formatted_date(self, d):
+    @staticmethod
+    def _formatted_date(unformatted_date):
         try:
-            dt = datetime.strptime(d, '%Y-%m-%dT%H:%M:%S.%fZ')
+            date_time = datetime.strptime(unformatted_date, '%Y-%m-%dT%H:%M:%S.%fZ')
         except ValueError:
             try:
-                dt = datetime.strptime(d, '%Y-%m-%dT%H:%M:%S:%fZ')
+                date_time = datetime.strptime(unformatted_date, '%Y-%m-%dT%H:%M:%S:%fZ')
             except ValueError:
-                dt = datetime.strptime(d, '%Y-%m-%dT%H:%M:%SZ')
+                date_time = datetime.strptime(unformatted_date, '%Y-%m-%dT%H:%M:%SZ')
 
-        date = dt.date()
+        date = date_time.date()
         date = datetime.strptime(str(date), '%Y-%m-%d')
         return date.strftime('%-m/%d/%y')
 
@@ -204,15 +221,15 @@ class Marketplace():
         Arguments:
             search_results {list} -- A list of search query results
         """
-        def _unique_id(x):
-            return '{}.{}'.format(x['publisher']['publisherName'], x['extensionName'])
+        def _unique_id(result):
+            return f'{result["publisher"]["publisherName"]}.{result["extensionName"]}'
 
-        def _last_updated(x):
-            return self._formatted_date(x['versions'][0]['lastUpdated'])
+        def _last_updated(result):
+            return self._formatted_date(result['versions'][0]['lastUpdated'])
 
-        def _description(x):
+        def _description(result):
             key = 'shortDescription'
-            return x[key] if key in x else ''
+            return result[key] if key in result else ''
 
         return [
             {
@@ -228,31 +245,6 @@ class Marketplace():
 
     def _show_no_results(self, text='Your search matched 0 extensions.'):
         _console.print(text)
-        return None
-
-
-    def _print_search_results(self, search_results):
-        """
-        Prints the search results to the console.
-
-        Arguments:
-            search_results {list} -- A list of search results
-        """
-        if not search_results:
-            return self._show_no_results()
-
-        # Print the results using a rich table
-        table = Table(box=box.SQUARE)
-        table.add_column('Extension ID', justify='left', no_wrap=True)
-        table.add_column('Version', justify='right', no_wrap=True)
-        table.add_column('Last Update', justify='right', no_wrap=True)
-        table.add_column('Rating', justify='right', no_wrap=True)
-        table.add_column('Installs', justify='right', no_wrap=True)
-        table.add_column('Description', justify='left', no_wrap=True)
-
-        for result in search_results:
-            table.add_row(*result.values())
-        _console.print(table)
 
 
     def get_extension_latest_version(self, unique_id, engine_version):
@@ -387,7 +379,5 @@ class Marketplace():
             sort_by=sort_by,
         )
 
-        # format the search results
-        results = self._format_search_results(extensions)
-        self._print_search_results(results)
-        return results
+        # format and return the search results
+        return self._format_search_results(extensions)
