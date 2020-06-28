@@ -1,13 +1,9 @@
 """Convert requests.requests to cURL requests"""
 
-import sys
 import json
-from requests import Request
+from shlex import quote
 
-if sys.version_info.major >= 3:
-    from shlex import quote
-else:
-    from pipes import quote
+from requests import Request
 
 
 class CurledRequest():
@@ -63,10 +59,6 @@ class CurledRequest():
         return ' '.join(flat_parts)
 
 
-    def _get_asset_name_from_url(self, url):
-        return url.split('/')[-1]
-
-
     def request(self, method, url, **kwargs):
         # Pop specific curl-conversion-related items from the kwargs before
         # sending them to the Request (since it won't recognize them)
@@ -76,7 +68,7 @@ class CurledRequest():
         output_dir = kwargs.pop('output_dir', None)
 
         if output_dir and not output:
-            output = '%s/%s' % (output_dir, self._get_asset_name_from_url(url))
+            output = f'{output_dir}/{url.split("/")[-1]}'
 
         # Make the prepared request
         prepared_request = Request(method, url, **kwargs).prepare()
