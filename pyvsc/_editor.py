@@ -1,6 +1,5 @@
 """Code editor management module"""
 
-
 from distutils.spawn import find_executable
 import json
 import os
@@ -76,6 +75,14 @@ class SupportedEditor(AttributeDict):
 
 
     def install_extension(self, extension_path):
+        """
+        Install an extension from a specified file path
+
+        Args:
+            extension_path (str): file system path
+        """
+        ext_name = 'Unknown'
+
         try:
             ext_name = os.path.basename(extension_path)
             _LOGGER.info('Installing %s', ext_name)
@@ -84,7 +91,7 @@ class SupportedEditor(AttributeDict):
 
         except Exception as err:
             _LOGGER.error('Failed to install extension: %d', ext_name)
-            _LOGGER.debug(err)
+            _LOGGER.debug(repr(err))
 
 
     def get_extensions(self, force_recheck=False):
@@ -190,6 +197,7 @@ class SupportedEditor(AttributeDict):
 
     @cached_property
     def api_url(self):
+        """Get the API URL where the latest releases of the editor can be found"""
         if self.api_root_url.startswith(_GITHUB_EDITOR_UPDATE_ROOT_URL):
             return self.api_root_url
 
@@ -199,7 +207,7 @@ class SupportedEditor(AttributeDict):
 
     @cached_property
     def latest(self):
-        '''
+        """
         Once set, "latest" has the following structure:
 
         latest <dict> {
@@ -211,9 +219,9 @@ class SupportedEditor(AttributeDict):
             timestamp: <int>,
             sha256hash: <str>,
         }
-        '''
+        """
         curl_request = _curled.get(self.api_url)
-        response = self.tunnel.run(curl_request)
+        response = self.tunnel.run(curl_request, hide=True)
 
         if response.exited == 0:
             return json.loads(response.stdout)
@@ -224,6 +232,7 @@ class SupportedEditor(AttributeDict):
 
     @cached_property
     def download_url(self):
+        """Get the URL where the latest editor release can be downloaded"""
         # if this editor uses the github api, we need to determine which asset we're looking
         # for and find the browser download url
         if self.api_url.startswith(_GITHUB_EDITOR_UPDATE_ROOT_URL):
@@ -238,26 +247,31 @@ class SupportedEditor(AttributeDict):
 
     @property
     def download_file_name(self):
+        """Get the name of the editor download file"""
         return os.path.basename(self.download_url)
 
 
     @property
     def extensions_dir(self):
+        """Get the full path to the editor extensions directory"""
         return expanded_path(f'$HOME/{self.home_dirname}/extensions')
 
 
     @property
     def installed(self):
+        """Check if the editor is installed on the current machine"""
         return find_executable(self.command) is not None
 
 
     @property
     def latest_version(self):
+        """Get the version of the latest editor release"""
         return self.latest.get('name')
 
 
     @property
     def can_update(self):
+        """Check if the editor can be updated"""
         installed_version = self.engine
         latest_version = self.latest_version
 

@@ -261,3 +261,4 @@ def install_zip(zipped_path):
         raise OSError('Your OS does not support installing VSCode editors from a .zip')
 
     os.system('unzip -q -o {} -d {}'.format(zipped_path, _DARWIN_INSTALL_LOCATION))
+

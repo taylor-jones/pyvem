@@ -121,6 +121,7 @@ def create_main_parser():
                                 help='Specify a SSH host in the form '
                                 '[user@]server[:port].')
 
+    # TODO: pyvem should support cases where a gateway is not necessary
     required_named.add_argument('-g', '--ssh-gateway',
                                 default='',
                                 required=True,

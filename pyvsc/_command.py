@@ -183,12 +183,12 @@ class Command():
             # TODO: This should be better handled. Right now, it would print the message
             # below if the Command.run() returns True, but I'm not sure how much value that adds.
             if self.run():
-                _console.print('[logging.level.info]All done![/]')
+                _LOGGER.info('All Done!')
             # else:
             #     _console.print('[logging.level.warning]Command finished[/]')
 
         except Exception as err:
-            _LOGGER.exception(err)
+            _LOGGER.exception(repr(err))
             # raise err
 
         finally:

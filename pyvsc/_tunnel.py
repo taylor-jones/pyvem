@@ -12,6 +12,7 @@ from pyvsc._containers import ConnectionParts
 from pyvsc._logging import get_rich_logger
 from pyvsc._util import delimit
 
+
 _console = Console(theme=rich_theme)
 _LOGGER = get_rich_logger(__name__, console=_console)
 
@@ -31,8 +32,7 @@ class Tunnel():
         Keyword Arguments:
             ssh_host {ConnectionParts} -- the ssh_host connection parts (default: {None})
             ssh_gateway {ConnectionParts} -- the ssh_gateway connection parts (default: {None})
-            autoconnect {bool} -- If True, go ahead and try to connect to the remote host at
-                initialization time (default: {False})
+            autoconnect {bool} -- If True, try to connect to the remote host at initialization time
         """
         self._connection = None
         self._localhost_name = gethostname()
@@ -187,7 +187,8 @@ class Tunnel():
         """
         self.ensure_connection()
         self._connection.get(remote=remote, local=local)
-        _LOGGER.debug('Copied "%s:%s" to "%s:%s"', self._ssh_host.hostname, remote,
+        _LOGGER.debug('Copied "%s:%s" to "%s:%s"',
+                      self._ssh_host.hostname, remote,
                       self._localhost_name, local)
 
 
@@ -206,7 +207,6 @@ class Tunnel():
 
         if res.exited == 0:
             _LOGGER.debug('Removed remote directory: "%s:%s"', self._ssh_host.hostname, path)
-            self._created_dirs.remove(path)
             return True
 
         return False
@@ -254,7 +254,7 @@ class Tunnel():
                     _LOGGER.error(err)
 
 
-    def run(self, command, hide=True):
+    def run(self, command, hide=False):
         """
         Execute a command on the remote host over ssh and returns the output.
 

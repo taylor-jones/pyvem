@@ -118,10 +118,10 @@ class InstallCommand(Command):
     def _get_dest_editors(self, target_arg=None):
         """
         Inspects the target/destination of the command argument to determine which VSCode-like
-        editor(s) are the intended target install location for any extensions that should are to
-        be installed as a result of this command. In most cases, the user will probably only care
-        to have one target editor, but this allows the opportunity for the user to specify
-        multiple destination editors in a single command.
+        editor(s) are the intended target install location for any extensions that are to be
+        installed as a result of this command. In most cases, the user will probably only care to
+        have one target editor, but this allows the opportunity for the user to specify multiple
+        destination editors in a single command.
 
         This function uses fuzzy matching with a pre-determined threshold to find matching code
         editor names that match enough to be considered the intended target editor destinations.
@@ -183,26 +183,43 @@ class InstallCommand(Command):
         parser_kwargs = {'add_help': False, 'prog': f'{_PROG} {self.name}'}
         parser = configargparse.ArgumentParser(**parser_kwargs)
 
-        parser.add_argument('--help', action='help', help='Show help.')
-        parser.add_argument('extensions_or_editors',
-                            nargs='+',
-                            default=[],
-                            help='Extension id(s) or code editor(s) to install.')
-        parser.add_argument('-s', '--source',
-                            default=None,
-                            metavar='EDITOR',
-                            type=str,
-                            help='A source editor from which to copy all extensions.')
-        parser.add_argument('-t', '--target',
-                            nargs='+',
-                            default=[Command.main_options.target],
-                            metavar='EDITOR',
-                            type=str,
-                            help='The installation target editor(s).')
-        parser.add_argument('--force',
-                            default=False,
-                            action='store_true',
-                            help='Force installation, even when already up-to-date.')
+        parser.add_argument(
+            '--help',
+            action='help',
+            help='Show help.'
+        )
+
+        parser.add_argument(
+            'extensions_or_editors',
+            nargs='+',
+            default=[],
+            help='Extension id(s) or code editor(s) to install.'
+        )
+
+        parser.add_argument(
+            '-s', '--source',
+            default=None,
+            metavar='EDITOR',
+            type=str,
+            help='A source editor from which to copy all extensions.'
+        )
+
+        parser.add_argument(
+            '-t', '--target',
+            nargs='+',
+            default=[Command.main_options.target],
+            metavar='EDITOR',
+            type=str,
+            help='The installation target editor(s).'
+        )
+
+        parser.add_argument(
+            '--force',
+            default=False,
+            action='store_true',
+            help='Force installation, even when already up-to-date.'
+        )
+
         return parser
 
 
@@ -239,7 +256,8 @@ class InstallCommand(Command):
 
             if current_editor.can_update:
                 downloaded_path = current_editor.download(remote_output, local_output)
-                self.store_temporary_file_path(downloaded_path)
+                _LOGGER.info('Automated installation of editors isn\'t currently supported. Please'
+                             ' install "%s" from "%s"', current_editor.editor_id, downloaded_path)
             else:
                 _LOGGER.info('%s is already up-to-date.', current_editor.editor_id)
 
@@ -339,7 +357,7 @@ class InstallCommand(Command):
 
                 # install any requested extensions
                 self._install_extensions(target_editors, extensions_to_install)
-
+                return True
         else:
             _LOGGER.error('The "install" command expects 1 or more arguments.')
             parser.print_usage()

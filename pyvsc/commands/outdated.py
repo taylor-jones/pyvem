@@ -303,6 +303,8 @@ class OutdatedCommand(Command):
             for i in outdated:
                 table.add_row(*i)
             _console.print(table)
+        else:
+            _LOGGER.info("All editors are up to date!")
 
 
     def run(self, *args, **kwargs):
