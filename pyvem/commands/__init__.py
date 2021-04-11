@@ -4,15 +4,15 @@ Package containing all vem commands
 from __future__ import print_function, absolute_import
 from sys import modules
 
-from pyvsc.commands.config import config_command
-from pyvsc.commands.help import help_command
-from pyvsc.commands.info import info_command
-from pyvsc.commands.install import install_command
-from pyvsc.commands.list import list_command
-from pyvsc.commands.outdated import outdated_command
-from pyvsc.commands.search import search_command
-from pyvsc.commands.update import update_command
-from pyvsc.commands.version import version_command
+from pyvem.commands.config import config_command
+from pyvem.commands.help import help_command
+from pyvem.commands.info import info_command
+from pyvem.commands.install import install_command
+from pyvem.commands.list import list_command
+from pyvem.commands.outdated import outdated_command
+from pyvem.commands.search import search_command
+from pyvem.commands.update import update_command
+from pyvem.commands.version import version_command
 
 
 def get_command_list():

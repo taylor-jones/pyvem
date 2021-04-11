@@ -2,7 +2,7 @@
 
 import re
 
-from pyvsc._config import _DEFAULT_SSH_PORT, _DEFAULT_SSH_USER
+from pyvem._config import _DEFAULT_SSH_PORT, _DEFAULT_SSH_USER
 
 
 class AttributeDict(dict):

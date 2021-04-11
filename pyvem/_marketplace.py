@@ -6,13 +6,11 @@ from datetime import datetime
 from functools import reduce
 
 from rich.console import Console
-from rich.table import Table
-from rich import box
 
-from pyvsc._logging import get_rich_logger
-from pyvsc._curler import CurledRequest
-from pyvsc._models import ExtensionQueryFilterType, ExtensionQueryFlags, ExtensionQuerySortByTypes
-from pyvsc._util import dict_from_list_key, human_number_format
+from pyvem._logging import get_rich_logger
+from pyvem._curler import CurledRequest
+from pyvem._models import ExtensionQueryFilterType, ExtensionQueryFlags, ExtensionQuerySortByTypes
+from pyvem._util import dict_from_list_key, human_number_format
 
 
 _MARKETPLACE_BASE_URL = 'https://marketplace.visualstudio.com'

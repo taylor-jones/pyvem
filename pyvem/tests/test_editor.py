@@ -8,8 +8,8 @@ import unittest
 
 import requests
 
-from pyvsc._editor import get_editors
-from pyvsc.tests.test_util import (
+from pyvem._editor import get_editors
+from pyvem.tests.test_util import (
     should_skip_remote_testing,
     get_dummy_tunnel_connection,
     github_get

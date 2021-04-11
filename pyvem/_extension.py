@@ -4,12 +4,12 @@ from __future__ import absolute_import
 import json
 import os
 
-from pyvsc._util import dict_from_list_key
-from pyvsc._containers import AttributeDict
-from pyvsc._machine import platform_query
-from pyvsc._marketplace import Marketplace
-from pyvsc._curler import CurledRequest
-from pyvsc._logging import get_rich_logger
+from pyvem._util import dict_from_list_key
+from pyvem._containers import AttributeDict
+from pyvem._machine import platform_query
+from pyvem._marketplace import Marketplace
+from pyvem._curler import CurledRequest
+from pyvem._logging import get_rich_logger
 
 
 

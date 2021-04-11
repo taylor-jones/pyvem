@@ -7,10 +7,10 @@ from getpass import getpass
 from fabric import Connection
 from rich.console import Console
 
-from pyvsc._config import rich_theme, _PROG
-from pyvsc._containers import ConnectionParts
-from pyvsc._logging import get_rich_logger
-from pyvsc._util import delimit
+from pyvem._config import rich_theme, _PROG
+from pyvem._containers import ConnectionParts
+from pyvem._logging import get_rich_logger
+from pyvem._util import delimit
 
 
 _console = Console(theme=rich_theme)
@@ -254,7 +254,7 @@ class Tunnel():
                     _LOGGER.error(err)
 
 
-    def run(self, command, hide=False):
+    def run(self, command, hide=True):
         """
         Execute a command on the remote host over ssh and returns the output.
 

@@ -2,10 +2,10 @@
 
 import sys
 
-from pyvsc._command import Command
-from pyvsc._config import _PROG, _VERSION
-from pyvsc._help import Help
-from pyvsc._logging import get_rich_logger
+from pyvem._command import Command
+from pyvem._config import _PROG, _VERSION
+from pyvem._help import Help
+from pyvem._logging import get_rich_logger
 
 
 _LOGGER = get_rich_logger(__name__)

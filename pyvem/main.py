@@ -8,17 +8,17 @@ import configargparse
 from fuzzywuzzy import process
 from rich.console import Console
 
-from pyvsc._util import iso_now, resolved_path
-from pyvsc._editor import SupportedEditorCommands
+from pyvem._util import iso_now, resolved_path
+from pyvem._editor import SupportedEditorCommands
 
-from pyvsc.commands import _COMMAND_NAMES
-from pyvsc.commands import _COMMAND_NAMES_AND_ALIASES
-from pyvsc.commands import get_command_obj
+from pyvem.commands import _COMMAND_NAMES
+from pyvem.commands import _COMMAND_NAMES_AND_ALIASES
+from pyvem.commands import get_command_obj
 
-from pyvsc._command import Command
-from pyvsc._config import _PROG, rich_theme
-from pyvsc._containers import parsed_connection_parts
-from pyvsc._logging import get_rich_logger
+from pyvem._command import Command
+from pyvem._config import _PROG, rich_theme
+from pyvem._containers import parsed_connection_parts
+from pyvem._logging import get_rich_logger
 
 _console = Console(theme=rich_theme)
 _LOGGER = get_rich_logger(__name__, console=_console)

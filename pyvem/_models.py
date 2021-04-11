@@ -1,6 +1,6 @@
 """VSCode Marketplace interfaces"""
 
-from pyvsc._containers import AttributeDict
+from pyvem._containers import AttributeDict
 
 '''
 https://github.com/microsoft/azure-devops-node-api/blob/dcf730b1426fb559d6fe2715223d4a7f3b56ef27/api/interfaces/GalleryInterfaces.ts#L627

@@ -6,7 +6,7 @@ import shutil
 import subprocess
 import sys
 
-from pyvsc._logging import get_rich_logger
+from pyvem._logging import get_rich_logger
 
 _LOGGER = get_rich_logger(__name__)
 _DARWIN_INSTALL_LOCATION = '/Applications'
@@ -30,7 +30,7 @@ class Machine():
     Identify common attributes for current system.
 
     Class that identifies system attributes that have an effect on determining
-    which vscode editor(s) and/or extension(s) are appropriate for a pyvsc
+    which vscode editor(s) and/or extension(s) are appropriate for a pyvem
     action.
 
     NOTE: This class is only concerned with the system attributes that help

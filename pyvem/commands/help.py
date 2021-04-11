@@ -2,23 +2,23 @@
 
 import sys
 
-from pyvsc._command import Command
-from pyvsc._config import _PROG
-from pyvsc._help import Help
-from pyvsc._logging import get_rich_logger
+from pyvem._command import Command
+from pyvem._config import _PROG
+from pyvem._help import Help
+from pyvem._logging import get_rich_logger
 
 # Import each of the other commands so their 'help' methods can be invoked from here.
 # This is the only command that needs to import all of the other commands.
 # pylint: disable=unused-import
 # flake8: noqa:401
-from pyvsc.commands.config import config_command
-from pyvsc.commands.info import info_command
-from pyvsc.commands.install import install_command
-from pyvsc.commands.list import list_command
-from pyvsc.commands.outdated import outdated_command
-from pyvsc.commands.search import search_command
-from pyvsc.commands.update import update_command
-from pyvsc.commands.version import version_command
+from pyvem.commands.config import config_command
+from pyvem.commands.info import info_command
+from pyvem.commands.install import install_command
+from pyvem.commands.list import list_command
+from pyvem.commands.outdated import outdated_command
+from pyvem.commands.search import search_command
+from pyvem.commands.update import update_command
+from pyvem.commands.version import version_command
 
 
 _LOGGER = get_rich_logger(__name__)

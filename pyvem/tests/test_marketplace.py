@@ -5,10 +5,10 @@ from getpass import getpass
 import sys
 import unittest
 
-from pyvsc._marketplace import Marketplace
-from pyvsc._containers import ConnectionParts
-from pyvsc._tunnel import Tunnel
-from pyvsc.tests.test_util import (
+from pyvem._marketplace import Marketplace
+from pyvem._containers import ConnectionParts
+from pyvem._tunnel import Tunnel
+from pyvem.tests.test_util import (
     should_skip_remote_testing,
     get_dummy_tunnel_connection,
 )

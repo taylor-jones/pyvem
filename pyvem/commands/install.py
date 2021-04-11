@@ -5,13 +5,13 @@ import logging
 import configargparse
 from fuzzywuzzy import process
 
-from pyvsc._command import Command
-from pyvsc._config import _PROG
-from pyvsc._help import Help
-from pyvsc._util import delimit
-from pyvsc._editor import SupportedEditorCommands, get_editors
-from pyvsc._extension import get_extension
-from pyvsc._logging import get_rich_logger
+from pyvem._command import Command
+from pyvem._config import _PROG
+from pyvem._help import Help
+from pyvem._util import delimit
+from pyvem._editor import SupportedEditorCommands, get_editors
+from pyvem._extension import get_extension
+from pyvem._logging import get_rich_logger
 
 
 _FUZZY_SORT_CONFIDENCE_THRESHOLD = 85
