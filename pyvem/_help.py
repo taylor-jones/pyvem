@@ -6,8 +6,8 @@ from textwrap import dedent
 from rich.console import Console
 from rich.text import Text
 
-from pyvsc._util import shell_dimensions
-from pyvsc._config import rich_theme
+from pyvem._util import shell_dimensions
+from pyvem._config import rich_theme
 
 _DEFAULT_WRAP_WIDTH = 80
 _DEFAULT_INDENT = '    '
@@ -187,6 +187,14 @@ class Help():
         # NOTE: printing an extra blank line at the end here because
         # the 'end' in the console print above is affecting the end of each
         # section as opposed to the end of the text as a whole.
+        print('')
+
+
+    def print_usage(self):
+        """Prints the synopsis (usage) of the Help object"""
+        parts = sum(tuple(getattr(self, _remove_leading_underscore(x))
+                          for x in ['_synopsis'] if getattr(self, x)), ())
+        _console.print(*parts, sep='\n', end='\n', highlight=False)
         print('')
 
 

@@ -3,22 +3,24 @@ from setuptools import setup, find_packages
 __version__ = '0.4-dev'
 
 setup(
-    name='pyvsc',
+    name='pyvem',
     description='VSCode extension management over SSH',
     version=__version__,
     packages=find_packages(),
     entry_points={
         'console_scripts': [
-            'vem = pyvsc.main:main'
+            'vem = pyvem.main:main'
         ]
     },
     install_requires=[
+        'cached_property',
         'configargparse',
         'coloredlogs',
         'fabric',
         'fuzzywuzzy',
         'paramiko',
         'python-Levenshtein',
+        'requests',
         'rich',
         'semantic_version',
     ],

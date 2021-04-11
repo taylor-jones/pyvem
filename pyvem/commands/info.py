@@ -1,9 +1,9 @@
 """Info command implementation"""
 
-from pyvsc._command import Command
-from pyvsc._config import _PROG
-from pyvsc._help import Help
-from pyvsc._logging import get_rich_logger
+from pyvem._command import Command
+from pyvem._config import _PROG
+from pyvem._help import Help
+from pyvem._logging import get_rich_logger
 
 
 _LOGGER = get_rich_logger(__name__)
@@ -13,9 +13,9 @@ _HELP = Help(
     synopsis=f'{_PROG} info <extension>\n'
              f'{_PROG} info <extension>[[@<version>]]\n\n'
              f'[h2]aliases[/]: {_PROG} show, {_PROG} view',
-    description='This command shows data about an extension from the VSCode Marketplace. The '
-                'default extension version is "latest", unless otherwise specified. The info '
-                'command accepts 1+ extension at a time.'
+    description='This command shows data about an extension from the VSCode Marketplace. '
+                'The default extension version is "latest", unless otherwise specified. '
+                'The info command accepts 1+ extension at a time.'
 )
 
 
@@ -55,7 +55,4 @@ class InfoCommand(Command):
 #
 # Create the InfoCommand instance
 #
-info_command = InfoCommand(
-    name='info',
-    aliases=['info', 'show', 'view'],
-)
+info_command = InfoCommand(name='info', aliases=['info', 'show', 'view'])

@@ -6,11 +6,11 @@ from rich.console import Console
 from rich.table import Table
 from rich import box
 
-from pyvsc._command import Command
-from pyvsc._config import _PROG
-from pyvsc._models import ExtensionQuerySortByTypes
-from pyvsc._help import Help
-from pyvsc._logging import get_rich_logger
+from pyvem._command import Command
+from pyvem._config import _PROG
+from pyvem._models import ExtensionQuerySortByTypes
+from pyvem._help import Help
+from pyvem._logging import get_rich_logger
 
 
 # Reference Configurations
@@ -85,34 +85,30 @@ class SearchCommand(Command):
         """
         parser_kwargs = {'add_help': False, 'prog': f'{_PROG} {self.name}'}
         parser = configargparse.ArgumentParser(**parser_kwargs)
-
         parser.add_argument(
             '--help',
             action='help',
             help='Show help.'
         )
-
         parser.add_argument(
             'query',
             nargs='+',
             default=[],
             help='The search text.'
         )
-
         parser.add_argument(
             '--sort-by',
             default='relevance',
             metavar='COLUMN',
             type=str,
-            help='The column to sort the search results by.'
+            help='Column to sort the results by.'
         )
-
         parser.add_argument(
             '--count',
             default=15,
             metavar='NUMBER',
             type=int,
-            help='The max number of search results to return.'
+            help='Max number of results to return.'
         )
 
         return parser
@@ -131,14 +127,10 @@ class SearchCommand(Command):
             VSCode Marketplace so that it can register which column we want to sort by.
         """
         if sort_argument:
-            match, confidence = process.extractOne(
-                query=sort_argument,
-                choices=ExtensionQuerySortByTypes.keys()
-            )
-
+            match, confidence = process.extractOne(query=sort_argument,
+                                                   choices=ExtensionQuerySortByTypes.keys())
             if confidence > _FUZZY_SORT_CONFIDENCE_THRESHOLD:
                 return match, ExtensionQuerySortByTypes[match]
-
         return None, None
 
 
@@ -157,12 +149,11 @@ class SearchCommand(Command):
             table.add_column('Last Update', justify='right', no_wrap=True)
             table.add_column('Rating', justify='right', no_wrap=True)
             table.add_column('Installs', justify='right', no_wrap=True)
-            table.add_column('Description', justify='left', no_wrap=True)
+            table.add_column('Description', justify='left', no_wrap=False)
 
             for result in search_results:
                 table.add_row(*result.values())
             _console.print(table)
-
         else:
             _console.print('Your search returned 0 results.')
 
@@ -193,8 +184,9 @@ class SearchCommand(Command):
 
         # send the search query to the marketplace
         Command.tunnel.connect()
-        search_results = Command.marketplace.search_extensions(
-            search_text=query_string, sort_by=sort_by, page_size=args.count)
+        search_results = Command.marketplace.search_extensions(search_text=query_string,
+                                                               sort_by=sort_by,
+                                                               page_size=args.count)
         SearchCommand.show_search_results(search_results)
 
 
@@ -223,7 +215,4 @@ class SearchCommand(Command):
 #
 # Create the SearchCommand instance
 #
-search_command = SearchCommand(
-    name='search',
-    aliases=['search', 'find', 's']
-)
+search_command = SearchCommand(name='search', aliases=['search', 'find', 's'])

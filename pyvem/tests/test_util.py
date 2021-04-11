@@ -1,9 +1,9 @@
 import requests
 from os import getenv
 
-from pyvsc._util import has_internet_connection
-from pyvsc._containers import ConnectionParts
-from pyvsc._tunnel import Tunnel
+from pyvem._util import has_internet_connection
+from pyvem._containers import ConnectionParts
+from pyvem._tunnel import Tunnel
 
 
 def should_skip_remote_testing():

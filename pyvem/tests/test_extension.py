@@ -5,14 +5,14 @@ import sys
 import unittest
 import requests
 
-from pyvsc._extension import (
+from pyvem._extension import (
     Extension,
     MarketplaceExtension,
     GithubExtension,
     get_extension
 )
 
-from pyvsc.tests.test_util import (
+from pyvem.tests.test_util import (
     should_skip_remote_testing,
     get_dummy_tunnel_connection,
     github_get

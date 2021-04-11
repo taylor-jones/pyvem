@@ -5,11 +5,11 @@ import pathlib
 
 from rich.console import Console
 
-from pyvsc._tunnel import Tunnel
-from pyvsc._marketplace import Marketplace
-from pyvsc._help import Help
-from pyvsc._config import rich_theme
-from pyvsc._logging import get_rich_logger
+from pyvem._tunnel import Tunnel
+from pyvem._marketplace import Marketplace
+from pyvem._help import Help
+from pyvem._config import rich_theme
+from pyvem._logging import get_rich_logger
 
 
 _console = Console(theme=rich_theme)
@@ -205,6 +205,14 @@ class Command():
         NOTE: This expects that each Command sub-class implements a Help class instance
         """
         self.help.print_help()
+
+
+    def show_usage(self):
+        """
+        Prints the synopsis of a command's help info.
+        NOTE: This expects that each Command sub-class implements a Help class instance
+        """
+        self.help.print_usage()
 
 
     def get_command_parser(self, *args, **kwargs):

@@ -8,11 +8,11 @@ import subprocess
 
 from cached_property import cached_property
 
-from pyvsc._util import expanded_path
-from pyvsc._containers import AttributeDict
-from pyvsc._machine import platform_query
-from pyvsc._curler import CurledRequest
-from pyvsc._logging import get_rich_logger
+from pyvem._util import expanded_path
+from pyvem._containers import AttributeDict
+from pyvem._machine import platform_query
+from pyvem._curler import CurledRequest
+from pyvem._logging import get_rich_logger
 
 
 _ENCODING = 'utf-8'

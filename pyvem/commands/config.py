@@ -7,11 +7,11 @@ import configargparse
 import yaml
 
 from rich.console import Console
-from pyvsc._command import Command
-from pyvsc._config import _PROG, rich_theme
-from pyvsc._help import Help
-from pyvsc._logging import get_rich_logger
-from pyvsc._util import get_confirmation, get_response, resolved_path
+from pyvem._command import Command
+from pyvem._config import _PROG, rich_theme
+from pyvem._help import Help
+from pyvem._logging import get_rich_logger
+from pyvem._util import get_confirmation, get_response, resolved_path
 
 
 _console = Console(theme=rich_theme)

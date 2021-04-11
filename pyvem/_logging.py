@@ -4,7 +4,7 @@ import logging
 
 from rich.console import Console
 from rich.logging import RichHandler
-from pyvsc._config import rich_theme
+from pyvem._config import rich_theme
 
 _console = Console(theme=rich_theme)
 
