@@ -234,16 +234,18 @@ class OutdatedCommand(Command):
             _LOGGER.info('(%d/%d) Checking extension: %s', index + 1, num_extensions_to_check, uid)
 
             installed_version = extension['version']
-            response = Command.marketplace.get_extension_latest_version(uid, editor.engine)
+            try:
+                response = Command.marketplace.get_extension_latest_version(uid, editor.engine)
 
-            last_updated = response['lastUpdated']
-            latest_version = response['versions'][0]['version']
+                last_updated = response['lastUpdated']
+                latest_version = response['versions'][0]['version']
 
-            if latest_version > installed_version:
-                extension['latest'] = latest_version
-                extension['last_updated'] = last_updated
-                outdated.append(extension)
-
+                if latest_version > installed_version:
+                    extension['latest'] = latest_version
+                    extension['last_updated'] = last_updated
+                    outdated.append(extension)
+            except Exception:
+                _LOGGER.error(f"Failed to check if {uid} is outdated...")
         return outdated
 
 

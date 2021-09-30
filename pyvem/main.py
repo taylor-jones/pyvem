@@ -41,32 +41,6 @@ def get_similar_commands(command):
             if x[1] > _FUZZYISH_COMMAND_THRESHOLD]
 
 
-class CustomFormatter(configargparse.HelpFormatter):
-    def _format_action_invocation(self, action):
-        if not action.option_strings:
-            metavar, = self._metavar_formatter(action, action.dest)(1)
-            return metavar
-
-        parts = []
-        # if the Optional doesn't take a value, format is:
-        #    -s, --long
-        if action.nargs == 0:
-            parts.extend(action.option_strings)
-
-        # if the Optional takes a value, format is:
-        #    -s ARGS, --long ARGS
-        # change to
-        #    -s, --long ARGS
-        else:
-            default = action.dest.upper()
-            args_string = self._format_args(action, default)
-            for option_string in action.option_strings:
-                parts.append('%s' % option_string)
-            parts[-1] += ' %s' % args_string
-
-        return ', '.join(parts)
-
-
 def create_main_parser():
     """
     Create and returns the main parser for vem's CLI.
@@ -85,7 +59,6 @@ def create_main_parser():
         'add_help': False,
         'default_config_files': ['.vemrc', '~/.vemrc', '~/.config/.vemrc'],
         'prog': _PROG,
-        'formatter_class': CustomFormatter,
         'description': 'VSCode CLI helper for editors and extensions'
     }
 
@@ -121,17 +94,16 @@ def create_main_parser():
                                 help='Specify a SSH host in the form '
                                 '[user@]server[:port].')
 
-    # TODO: pyvem should support cases where a gateway is not necessary
-    required_named.add_argument('-g', '--ssh-gateway',
+    #
+    # setup optional named arguments
+    #
+    optional_named.add_argument('-g', '--ssh-gateway',
                                 default='',
-                                required=True,
+                                required=False,
                                 type=parsed_connection_parts,
                                 help='Specify a SSH gateway in the form '
                                 '[user@]server[:port].')
 
-    #
-    # setup optional named arguments
-    #
     optional_named.add_argument('-o', '--output-dir',
                                 default=_TMP_OUTPUT_DIR,
                                 type=resolved_path,

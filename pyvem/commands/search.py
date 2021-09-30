@@ -41,7 +41,7 @@ _HELP = Help(
     brief='Search the VSCode Marketplace',
     synopsis=f'{_PROG} search <term>\n'
              f'{_PROG} search <term> [[--sort-by [[COLUMN]]]]\n'
-             f'{_PROG} search <term> [[--count [[NUMBER]]]]\n\n'
+             f'{_PROG} search <term> [[--limit [[NUMBER]]]]\n\n'
              f'[h2]aliases:[/h2] {_PROG} s, {_PROG} find\n',
     description='This command searched the VSCode Marketplace for extensions matching the '
                 'provided search terms. Additional search control is provided by specifying '
@@ -57,7 +57,7 @@ _HELP = Help(
             'Available sort columns include:\n'
             f'[example]{", ".join(_AVAILABLE_SORT_COLUMNS)}[/]'
             '\n\n'
-            '[h2]--count [[NUMBER]][/h2]\n'
+            '[h2]--limit [[NUMBER]][/h2]\n'
             '\t* Type: Integer\n'
             '\t* Default: 15'
             '\n\n'
@@ -104,7 +104,7 @@ class SearchCommand(Command):
             help='Column to sort the results by.'
         )
         parser.add_argument(
-            '--count',
+            '--limit',
             default=15,
             metavar='NUMBER',
             type=int,
@@ -186,7 +186,7 @@ class SearchCommand(Command):
         Command.tunnel.connect()
         search_results = Command.marketplace.search_extensions(search_text=query_string,
                                                                sort_by=sort_by,
-                                                               page_size=args.count)
+                                                               page_size=args.limit)
         SearchCommand.show_search_results(search_results)
 
 

@@ -137,7 +137,9 @@ class Marketplace():
             flags=flags or _MAERKETPLACE_DEFAULT_SEARCH_FLAGS
         )
 
-        return extensions[0] if isinstance(extensions, list) else extensions
+        if isinstance(extensions, list) and len(extensions) > 0:
+            return extensions[0]
+        return extensions
 
 
     @staticmethod
