@@ -22,7 +22,7 @@ from pyvem.commands.version import version_command
 _LOGGER = get_rich_logger(__name__)
 _HELP = Help(
     name='commands',
-    brief=f'lists the supported {_PROG} commands',
+    brief=f'Lists the supported {_PROG} commands',
     synopsis='',
     description=f'For detailed information about a specific command, use'
                 f'[example]{_PROG} help <command>[/example]')
@@ -47,7 +47,7 @@ class CommandsCommand(Command):
         self.apply_log_level(_LOGGER)
 
         for cmd in get_command_objs():
-            print(cmd.help.heading)
+            print('* ', cmd.help.heading)
 
         sys.exit(0)
 
