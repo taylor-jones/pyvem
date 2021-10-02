@@ -58,7 +58,6 @@ class Command():
         if path:
             Command.temporary_file_paths.append(path)
 
-
     @staticmethod
     def remove_temporary_files() -> None:
         """
@@ -67,7 +66,6 @@ class Command():
         if not Command.main_options.no_cleanup:
             for tmp_file in Command.temporary_file_paths:
                 os.remove(tmp_file)
-
 
     @staticmethod
     def apply_log_level(logger: logging.Logger) -> None:
@@ -80,7 +78,6 @@ class Command():
             logger -- The logger from a command.
         """
         logger.setLevel(Command.main_options.log_level)
-
 
     @staticmethod
     def show_error(text: str, **kwargs) -> None:
@@ -136,19 +133,21 @@ class Command():
 
         Returns:
             bool -- True if the output directory was ensured to exist (whether
-            we created it or it already existed), False if an exception was raised.
+            we created it or it already existed), False if an exception was
+            raised.
         """
         # We only need to do this once.
         if self.created_local_output_dir is not None:
             return True
 
-        if os.path.exists(Command.main_options.output_dir):
+        output_dir = Command.main_options.output_dir
+
+        if os.path.exists(output_dir):
             self.created_local_output_dir = False
             return True
 
         try:
-            pathlib.Path(Command.main_options.output_dir).mkdir(
-                parents=True, exist_ok=False)
+            pathlib.Path(output_dir).mkdir(parents=True, exist_ok=False)
             self.created_local_output_dir = True
             return True
         except EnvironmentError as err:
@@ -156,7 +155,8 @@ class Command():
             return False
 
 
-    def invoke(self, main_parser: ArgumentParser, main_options: Namespace) -> None:
+    def invoke(self, main_parser: ArgumentParser,
+               main_options: Namespace) -> None:
         """
         Prepare a Command object's static elements in order to make them
         available to all Command subclasses. Then invokes the run() command
@@ -189,11 +189,7 @@ class Command():
         # Invoke the run() method on the called command. The run() method must
         # be implemented within each command subclass.
         try:
-            # TODO: This should be better handled. Right now, it would print
-            # the message below if the Command.run() returns True, but I'm not
-            # sure how much value that adds.
-            if self.run():
-                _LOGGER.info('All Done!')
+            self.run()
         except Exception as err:
             _LOGGER.exception(repr(err))
         finally:
