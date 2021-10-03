@@ -1,8 +1,8 @@
-from __future__ import print_function
-from __future__ import absolute_import
+"""Module for representing an individual Extension"""
 
 import json
 import os
+from typing import Any, List
 
 from pyvem._util import dict_from_list_key
 from pyvem._containers import AttributeDict
@@ -10,12 +10,10 @@ from pyvem._machine import platform_query
 from pyvem._marketplace import Marketplace
 from pyvem._curler import CurledRequest
 from pyvem._logging import get_rich_logger
-
-
+from pyvem._tunnel import Tunnel
 
 _GITHUB_API_ROOT_URI = 'https://api.github.com'
 _GITHUB_ROOT_URI = 'https://github.com'
-
 
 # NOTE: Active issue for better handling offline binaries installation
 # https://github.com/microsoft/vscode-cpptools/issues/5290
@@ -38,13 +36,11 @@ _NON_MARKETPLACE_EXTENSIONS = AttributeDict({
 })
 
 _LOGGER = get_rich_logger(__name__)
-_curled = CurledRequest()
+_REQUEST_CURLER = CurledRequest()
 
 
-class Extension():
-    """
-    Extension base class
-    """
+class Extension:
+    """Extension base class"""
 
     def __init__(self, tunnel=None, **kwargs):
         self.tunnel = tunnel
@@ -53,8 +49,11 @@ class Extension():
         self.should_download_from_marketplace = \
             self.unique_id not in _NON_MARKETPLACE_EXTENSIONS.keys()
 
+        self.extension_dependencies = []
+        self.extension_pack = []
 
-    def download(self, remote_dir, local_dir):
+
+    def download(self, remote_dir: str, local_dir: str) -> str:
         """
         Download the .vsix extension.
 
@@ -63,14 +62,12 @@ class Extension():
         local machine.
 
         Arguments:
-            remote_dir {str} -- Absolute path to the download directory on the
-                remote host
-            local_dir {str} -- Absolute path to the download directory on the
-                local host.
+            remote_dir -- Absolute path to the download dir on the remote host
+            local_dir -- Absolute path to the download dir on the local host
 
         Returns
-            str -- The absolute path to the downloaded file on the local
-            machine (if sucessful). If unsuccessful, returns False.
+            The absolute path to the downloaded file on the local machine
+            (if sucessful). If unsuccessful, returns False.
 
         """
         downloaded_extension_paths = []
@@ -81,40 +78,39 @@ class Extension():
 
         # Process any extension dependencies before the current extension.
         if num_dependencies > 0:
-            _LOGGER.info('{} has {} extension dependencies.'.format(
-                self.unique_id, num_dependencies))
+            _LOGGER.info('%s has %d extension dependencies.',
+                         self.unique_id, num_dependencies)
 
-            for index, extension in enumerate(self.extension_dependencies):
+            for _, extension in enumerate(self.extension_dependencies):
                 downloaded_extension_paths.extend(
                     extension.download(remote_dir, local_dir))
 
-            _LOGGER.debug('All {} dependencies processed'.format(
-                self.unique_id))
+            _LOGGER.debug('All %s dependencies processed', self.unique_id)
 
         # Process extension pack items before the current extension.
         if num_extension_pack > 0:
-            _LOGGER.info('{} has {} extensions in extension pack.'.format(
-                self.unique_id, num_extension_pack))
+            _LOGGER.info('%s has %s extensions in extension pack.',
+                         self.unique_id, num_extension_pack)
 
-            for index, extension in enumerate(self.extension_pack):
+            for _, extension in enumerate(self.extension_pack):
                 downloaded_extension_paths.extend(
                     extension.download(remote_dir, local_dir))
 
-            _LOGGER.debug('All {} extension pack extensions processed'.format(
-                self.unique_id))
+            _LOGGER.debug('All %s extension pack extensions processed',
+                          self.unique_id)
 
         # Download the current extension.
         extension_name = self.unique_id
-        _LOGGER.info('Downloading {}'.format(extension_name))
+        _LOGGER.info('Downloading %s', extension_name)
 
         # If a specific version of the extension is known, append that version
         # to the name of the extension (for added specificity).
         if hasattr(self, 'version'):
-            extension_name = '{}-{}'.format(extension_name, self.version)
+            extension_name = f'{extension_name}-{self.version}'
 
         # In any case, append the .vsix extension to the extension file name.
         # .vsix is universal to all VSCode extensions.
-        extension_file = '{}.vsix'.format(extension_name)
+        extension_file = f'{extension_name}.vsix'
 
         # Specify the paths to where we'll download the extension on the remote
         # system and where we'll transfer it to on the local system.
@@ -122,13 +118,14 @@ class Extension():
         local_path = os.path.join(local_dir, extension_file)
 
         # Build the curled request and send it through the tunnel.
-        curled_request = _curled.get(self.download_url, output=remote_path)
+        curled_request = _REQUEST_CURLER.get(self.download_url,
+                                             output=remote_path)
         response = self.tunnel.run(curled_request)
 
         # If the download request had any issues, then we won't try to transfer
         # the extension from the remote machine to the local machine.
         if response.exited != 0:
-            _LOGGER.error('Failed to download {}.'.format(extension_name))
+            _LOGGER.error('Failed to download %s.', extension_name)
             _LOGGER.error(response.stderr)
             return False
 
@@ -161,29 +158,27 @@ class GithubExtension(Extension):
             self._download_url_from_latest() if release == 'latest'
             else self._download_url_from_args())
 
-        super().__init__(
-            unique_id=self.unique_id,
-            download_url=self.download_url,
-            tunnel=self.tunnel,
-        )
+        super().__init__(unique_id=self.unique_id,
+                         download_url=self.download_url,
+                         tunnel=self.tunnel)
 
 
-    def _get_download_url_from_asset_list(self, asset_list):
+    def _get_download_url_from_asset_list(self, asset_list: List[str]) -> str:
         """
         Finds the asset from a list of GitHub API assets that corresponds the
         the current machine and returns the associated browser_download_url
 
         Arguments:
-            asset_list {list} -- A list of assets (from the GitHub API)
+            asset_list -- A list of assets (from the GitHub API)
 
         Returns:
-            str -- The full URL where the asset can be downloaded
+            The full URL where the asset can be downloaded
         """
         asset = dict_from_list_key(asset_list, 'name', self.asset_name)
         return asset['browser_download_url']
 
 
-    def _download_url_from_latest(self):
+    def _download_url_from_latest(self) -> str:
         """
         Get the download URL for the latest version of this extension.
 
@@ -191,14 +186,14 @@ class GithubExtension(Extension):
         matches the system platform and release specifications.
 
         Returns:
-            str -- The direct url from which the extension can be downlaoded
+            The direct url from which the extension can be downlaoded
         """
         if not self.prerelease:
             # By default, GitHub's API only shows non-prerelease assets at the
             # 'latest' endpoint, so if we don't allow pre-releases, we can just
             # append 'latest' to our API URL and use the resulting asset.
-            query_endpoint = '/repos/{}/{}/releases/{}?per_page=1'.format(
-                self.owner, self.repo, self.release)
+            endpoint = f'repos/{self.owner}/{self.repo}/releases/' \
+                       f'{self.release}?per_page=1'
         else:
             # If we DO want to allow pre-release assets, we won't add 'latest'
             # to the end of our query URL, which will allow a prerelease asset
@@ -207,13 +202,12 @@ class GithubExtension(Extension):
             #
             # Note that this will still fetch a non-prerelease/stable asset if
             # the latest asset is non-prerelsease/stable.
-            query_endpoint = '/repos/{}/{}/releases?per_page=1'.format(
-                self.owner, self.repo)
+            endpoint = f'repos/{self.owner}/{self.repo}/releases?per_page=1'
 
         # Build the query complete URL and the cURLed GET request, then
         # send the request via the tunnel connection provided to the extension.
-        query_url = '{}{}'.format(_GITHUB_API_ROOT_URI, query_endpoint)
-        curled_request = _curled.get(query_url)
+        url = f'{_GITHUB_API_ROOT_URI}/{endpoint}'
+        curled_request = _REQUEST_CURLER.get(url)
         response = self.tunnel.run(curled_request)
 
         # If the GET request was successful, then parse the JSON response and
@@ -229,16 +223,16 @@ class GithubExtension(Extension):
         return None
 
 
-    def _download_url_from_args(self):
+    def _download_url_from_args(self) -> str:
         """
         Build the extension download url by joining the class arguments.
 
         Returns:
-            str -- The direct url from which the extension can be downlaoded
+            The direct url from which the extension can be downlaoded
         """
-        query_endpoint = '/{}/{}/releases/download/{}/{}'.format(
-            self.owner, self.repo, self.release, self.asset_name)
-        return '{}{}'.format(_GITHUB_ROOT_URI, query_endpoint)
+        query_endpoint = f'{self.owner}/{self.repo}/releases/download/' \
+                         f'{self.release}/{self.asset_name}'
+        return f'{_GITHUB_ROOT_URI}/{query_endpoint}'
 
 
 
@@ -249,24 +243,24 @@ class MarketplaceExtension(Extension):
     """
     def __init__(self, parsed_marketplace_response, tunnel=None):
         # abbreviate the parsed response to make it easier to reference.
-        p = parsed_marketplace_response
+        response = parsed_marketplace_response
 
         # Keep a reference to the provided tunnel connection.
         self.tunnel = tunnel
 
         # Get references to the extension attributes we need.
-        self.extension_id = p['extensionId']
-        self.extension_name = p['extensionName']
-        self.display_name = p['displayName']
-        self.publisher_name = p['publisher']['publisherName']
-        self.unique_id = '%s.%s' % (self.publisher_name, self.extension_name)
-        self.description = p['shortDescription']
-        self.stats = p['statistics']
+        self.extension_id = response['extensionId']
+        self.extension_name = response['extensionName']
+        self.display_name = response['displayName']
+        self.publisher_name = response['publisher']['publisherName']
+        self.unique_id = f'{self.publisher_name}.{self.extension_name}'
+        self.description = response['shortDescription']
+        self.stats = response['statistics']
 
         # Some attributes are nested. We don't need to store these nested
         # objects directly, but we need them to find the values of other
         # attributes that we do want to store.
-        version = p['versions'][0]
+        version = response['versions'][0]
         files = version['files']
         properties = version['properties']
 
@@ -294,14 +288,12 @@ class MarketplaceExtension(Extension):
         # install this extension.
         self.extension_dependencies = self._extension_dependencies(properties)
 
-        super().__init__(
-            unique_id=self.unique_id,
-            download_url=self.uri.vsix_package,
-            tunnel=self.tunnel
-        )
+        super().__init__(unique_id=self.unique_id,
+                         download_url=self.uri.vsix_package,
+                         tunnel=self.tunnel)
 
 
-    def _manifest_url(self, files):
+    def _manifest_url(self, files: List[str]) -> str:
         """
         Read the extension files to determine the URI to the manifset
         file for this extension. If desired, an additional request could
@@ -309,12 +301,12 @@ class MarketplaceExtension(Extension):
         extension.
 
         Arguments:
-            files {list} -- A list of extension files associated with this
-            extension. This comes from the JSON response that resulted from
-            querying this extension in the VSCode Extension Marketplace.
+            files -- A list of extension files associated with this extension.
+                    This comes from the JSON response that resulted from
+                    querying this extension in the VSCode Extension Marketplace.
 
         Returns:
-            str -- The URI of the manifest file for the current extension.
+            The URI of the manifest file for the current extension.
         """
         key = 'assetType'
         value = 'Microsoft.VisualStudio.Code.Manifest'
@@ -322,19 +314,19 @@ class MarketplaceExtension(Extension):
         return match['source'] if match else None
 
 
-    def _vsix_package_uri(self, files):
+    def _vsix_package_uri(self, files: List[str]) -> str:
         """
         Read the extension files to determine the URI to the .VSIXPackage
         file (which is an alias for the .vsix) for this extension. This is
         the URI of where the extension can be downloaded.
 
         Arguments:
-            files {list} -- A list of extension files associated with this
-            extension. This comes from the JSON response that resulted from
-            querying this extension in the VSCode Extension Marketplace.
+            files -- A list of extension files associated with this extension.
+            This comes from the JSON response that resulted from querying this
+            extension in the VSCode Extension Marketplace.
 
         Returns:
-            str -- The URI of where the .vsix can be downloaded from the
+            The URI of where the .vsix can be downloaded from the
             VSCode Marketplace.
         """
         key = 'assetType'
@@ -343,18 +335,18 @@ class MarketplaceExtension(Extension):
         return match['source'] if match else None
 
 
-    def _code_engine(self, properties):
+    def _code_engine(self, properties: List[str]) -> str:
         """
         Read the extension properties to determine which VSCode engine
         is required for this extension (at it's current/specified version).
 
         Arguments:
-            properties {list} -- A list of extension properties from the
-            JSON response that resulted from querying this extension in
-            the VSCode Extension Marketplace
+            properties -- A list of extension properties from the JSON response
+            that resulted from querying this extension in the VSCode Extension
+            Marketplace
 
         Returns:
-            str -- The version of VSCode required for this extension.
+            The version of VSCode required for this extension.
         """
         key = 'key'
         value = 'Microsoft.VisualStudio.Code.Engine'
@@ -362,7 +354,7 @@ class MarketplaceExtension(Extension):
         return match['value'] if match else None
 
 
-    def _extension_pack(self, properties):
+    def _extension_pack(self, properties: List[str]) -> List[Extension]:
         """
         Read the extension properties to determine which VSCode extensions are
         included in this extension pack (if any). Return a list of Extension
@@ -372,13 +364,13 @@ class MarketplaceExtension(Extension):
         here.
 
         Arguments:
-            properties {list} -- A list of extension properties from the
-            JSON response that resulted from querying this extension in
-            the VSCode Extension Marketplace
+            properties -- A list of extension properties from the JSON response
+            that resulted from querying this extension in the VSCode Extension
+            Marketplace
 
         Returns:
-            list -- A list of Extension objects, one for each named extension
-            in the extension pack property value for this extension.
+            A list of Extension objects, one for each named extension in the
+            extension pack property value for this extension.
         """
 
         key = 'key'
@@ -399,7 +391,20 @@ class MarketplaceExtension(Extension):
         return extension_pack
 
 
-    def _extension_dependencies(self, properties):
+    def _extension_dependencies(self, properties: List[str]) -> List[Extension]:
+        """
+        Read the extension properties to determine which VSCode extensions are
+        dependencies of this extension (if any). Return a list of Extension
+        objects corresponding to each of the dependency extensions.
+
+        Arguments:
+            properties -- A list of extension properties from the JSON response
+            that resulted from querying this extension in the VSCode Extension
+            Marketplace
+
+        Returns:
+            A list of Extension objects, one for each named dependency.
+        """
         key = 'key'
         value = 'Microsoft.VisualStudio.Code.ExtensionDependencies'
         match = dict_from_list_key(properties, key, value)
@@ -409,7 +414,7 @@ class MarketplaceExtension(Extension):
             dependencies_string = match['value']
             extension_names = [x for x in dependencies_string.split(',') if x]
 
-            # Create a new Extension instance for each of the extensions and 
+            # Create a new Extension instance for each of the extensions and
             # append those Extension objects to the dependencies list.
             for name in extension_names:
                 dependencies.append(get_extension(name, self.tunnel))
@@ -418,40 +423,34 @@ class MarketplaceExtension(Extension):
 
 
 
-
-def get_extension(
-    unique_id,
-    tunnel=None,
-    release='latest',
-    use_marketplace_only=False
-):
+def get_extension(unique_id: str,
+                  tunnel: Tunnel = None,
+                  release: str = 'latest',
+                  use_marketplace_only: bool = False) -> Any:
     """
     Creates an Extension instance, using either the VSCode Marketplace or
     GitHub, depending on the appropriate extension source.
 
     Arguments:
-        unique_id {str} -- The unique id of the extension, which includes the
-            publisher and package in the format of {publisher}.{package}
-        tunnel {Tunnel} -- SSH Tunnel instance
-        release {str} -- The desired release version (default: 'latest')
+        unique_id -- The unique id of the extension, which includes the
+                publisher and package in the format of {publisher}.{package}
+        tunnel -- SSH Tunnel instance
+        release -- The desired release version
 
     Returns:
-        Extension -- An instance of an Extension, either a GithubExtension or
+        An instance of an Extension, either a GithubExtension or
         a MarketplaceExtension
     """
-    non_marketplace_extension = _NON_MARKETPLACE_EXTENSIONS.get(unique_id)
+    extension = _NON_MARKETPLACE_EXTENSIONS.get(unique_id)
 
-    if non_marketplace_extension is None or use_marketplace_only:
-        return MarketplaceExtension(
-            Marketplace(tunnel=tunnel).get_extension(unique_id),
-            tunnel=tunnel
-        )
+    if extension is None or use_marketplace_only:
+        marketplace = Marketplace(tunnel=tunnel)
+        extension = marketplace.get_extension(unique_id)
+        return MarketplaceExtension(extension, tunnel=tunnel)
 
-    return GithubExtension(
-        owner=non_marketplace_extension.owner,
-        repo=non_marketplace_extension.repo,
-        asset_name=non_marketplace_extension.asset_name,
-        unique_id=unique_id,
-        release=release,
-        tunnel=tunnel,
-    )
+    return GithubExtension(owner=extension.owner,
+                           repo=extension.repo,
+                           asset_name=extension.asset_name,
+                           unique_id=unique_id,
+                           release=release,
+                           tunnel=tunnel)
