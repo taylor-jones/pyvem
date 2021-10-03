@@ -5,6 +5,7 @@ import json
 import os
 import re
 import subprocess
+from typing import List, Any
 
 from cached_property import cached_property
 
@@ -13,6 +14,7 @@ from pyvem._containers import AttributeDict
 from pyvem._machine import platform_query
 from pyvem._curler import CurledRequest
 from pyvem._logging import get_rich_logger
+from pyvem._tunnel import Tunnel
 
 
 _ENCODING = 'utf-8'
@@ -86,18 +88,22 @@ class SupportedEditor(AttributeDict):
         try:
             ext_name = os.path.basename(extension_path)
             _LOGGER.info('Installing %s', ext_name)
-            subprocess.Popen([self.command, '--install-extension', extension_path],
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE).wait()
+
+            subprocess.Popen([self.command, '--install-extension',
+                              extension_path],
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE).wait()
 
         except Exception as err:
             _LOGGER.error('Failed to install extension: %d', ext_name)
             _LOGGER.debug(repr(err))
 
 
-    def get_extensions(self, force_recheck=False):
+    def get_extensions(self, force_recheck: bool = False) -> List[Any]:
         """
-        Builds a list of extensions for the current code editor, parsing each list item into
-        a dict having the following format (which is based on _EXTENSION_ATTRIBUTES_RE):
+        Builds a list of extensions for the current code editor, parsing each
+        list item into a dict having the following format, which is based on
+        _EXTENSION_ATTRIBUTES_RE:
         {
             'unique_id': <str>,
             'publisher': <str>,
@@ -106,12 +112,12 @@ class SupportedEditor(AttributeDict):
         }
 
         Keyword Arguments:
-            force_recheck {bool} -- If True, any previously-build extensions
-            list will be ignored and a new one will be built (default: {False})
+            force_recheck -- If True, any previously-build extensions list is
+                             ignored and a new one will be built
 
         Returns:
-            list -- A list of extension dict items representing the currently-installed
-                extensions for this editor.
+            A list of extension dict items representing the currently-installed
+            extensions for this editor.
         """
         if not self.installed:
             return []
@@ -123,18 +129,18 @@ class SupportedEditor(AttributeDict):
         return self.extensions
 
 
-    def download(self, remote_dir, local_dir):
+    def download(self, remote_dir: str, local_dir: str) -> str:
         """
-        Communicate to the tunnel instance to download the editor on the remote machine
-        and then copy it to the specified location on the local machine.
+        Communicate to the tunnel instance to download the editor on the remote
+        machine and then copy it to the specified location on the local machine
 
         Arguments:
-            remote_dir {str} -- Absolute path to the download directory on the remote host
-            local_dir {str} -- Absolute path to the download directory on the local host.
+            remote_dir -- Absolute path to the download dir on the remote host
+            local_dir -- Absolute path to the download dir on the local host
 
         Returns:
-            str -- The absolute path to the downloaded file on the local
-            machine (if sucessful). If unsuccessful, returns False.
+            The absolute path to the downloaded file on the local machine
+            (if sucessful). If unsuccessful, returns None.
         """
         remote_fs_path = os.path.join(remote_dir, self.download_file_name)
         local_fs_path = os.path.join(local_dir, self.download_file_name)
@@ -143,7 +149,8 @@ class SupportedEditor(AttributeDict):
         response = self.tunnel.run(curl_request)
         if response.exited != 0:
             _LOGGER.error(response.stderr)
-            return False
+            return None
+            # return False
 
         _LOGGER.info(response.stdout)
         self.tunnel.get(remote_fs_path, local_fs_path)
@@ -154,7 +161,7 @@ class SupportedEditor(AttributeDict):
 
 
     @cached_property
-    def engine(self):
+    def engine(self) -> str:
         """
         Get the currently-installed version of this code editor.
 
@@ -163,18 +170,18 @@ class SupportedEditor(AttributeDict):
             is not installed or not on the PATH).
         """
         try:
-            # check the installed editor version. This will return 3 lines as follows:
+            # check the installed editor version. This will return 3 lines:
             # 1) the installed editor engine version
             # 2) the installed editor hash
             # 3) installed editor architecture
 
-            # Since we're only interested in the engine version, we'll return the
-            # first line of the output value.
-            installed_editor_info = subprocess.check_output([self.command, '--version'])
-            installed_editor_engine = installed_editor_info.splitlines()[0].decode(_ENCODING)
+            # Since we're only interested in the engine version, we'll return
+            # the first line of the output value.
+            stdout = subprocess.check_output([self.command, '--version'])
+            installed_editor_engine = stdout.splitlines()[0].decode(_ENCODING)
             return installed_editor_engine
 
-        # If the editor is not on
+        # If the editor is not on the PATH
         except EnvironmentError:
             return None
 
@@ -187,17 +194,22 @@ class SupportedEditor(AttributeDict):
         Returns:
             list
         """
-        stdout, _ = subprocess.Popen([self.command, '--list-extensions', '--show-versions'],
-                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        stdout, _ = subprocess.Popen([self.command, '--list-extensions',
+                                      '--show-versions'],
+                                     stdout=subprocess.PIPE,
+                                     stderr=subprocess.PIPE,
                                      encoding='utf-8').communicate()
 
-        # parse the extension results into a list of dicts of extension attributes
-        return [_EXTENSION_ATTRIBUTES_RE.match(line).groupdict() for line in stdout.splitlines()]
+        # parse the results into a list of dicts of extension attributes
+        return [_EXTENSION_ATTRIBUTES_RE.match(line).groupdict()
+                for line in stdout.splitlines()]
 
 
     @cached_property
     def api_url(self):
-        """Get the API URL where the latest releases of the editor can be found"""
+        """
+        Get the API URL where the latest releases of the editor can be found
+        """
         if self.api_root_url.startswith(_GITHUB_EDITOR_UPDATE_ROOT_URL):
             return self.api_root_url
 
@@ -233,14 +245,16 @@ class SupportedEditor(AttributeDict):
     @cached_property
     def download_url(self):
         """Get the URL where the latest editor release can be downloaded"""
-        # if this editor uses the github api, we need to determine which asset we're looking
-        # for and find the browser download url
+        # if this editor uses the github api, we need to determine which asset
+        # we're looking for and find the browser download url
         if self.api_url.startswith(_GITHUB_EDITOR_UPDATE_ROOT_URL):
             assets = self.latest['assets']
-            asset = next(x for x in assets if x['name'].endswith(self.github_ext_pattern))
+            asset = next(x for x in assets
+                         if x['name'].endswith(self.github_ext_pattern))
             return asset['browser_download_url']
 
-        # if this editor uses the the visualstudio update api, get the url from the json result.
+        # if this editor uses the the visualstudio update api, get the url from
+        # the json result.
         if self.api_root_url == _MARKETPLACE_EDITOR_UPDATE_ROOT_URL:
             return self.latest['url']
 
@@ -276,8 +290,8 @@ class SupportedEditor(AttributeDict):
         latest_version = self.latest_version
 
         # we can update the current editor if all of the following are true:
-        # - we were able to connect to the remote marketplace to identify which version is the
-        #   most-recently-released version of this editor.
+        # - we were able to connect to the remote marketplace to identify which
+        #   version is the most-recently-released version of this editor.
         # - the currently-installed version is older than the latest version OR
         #   the editor is not currently installed.
         return latest_version is not None and (
@@ -297,16 +311,16 @@ def set_tunnel_for_editors(tunnel, *editors):
         setattr(editor, 'tunnel', tunnel)
 
 
-def get_editors(tunnel=None):
+def get_editors(tunnel: Tunnel = None):
     """
     Get AttributeDict of SupportedEditors.
 
-    Builds an AttributeDict of data about each of the support VSCode editor variations on the
-    current system.
+    Builds an AttributeDict of data about each of the support VSCode editor
+    variations on the current system.
 
     Keyword Arguments:
-        tunnel {Tunnel} -- An SSH tunnel connection, which is used to make remote requests as
-            part of building the editor information (default: {None})
+        tunnel {Tunnel} -- An SSH tunnel connection, which is used to make
+        remote requests as part of building the editor information
 
     Returns
         AttributeDict
