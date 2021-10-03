@@ -2,25 +2,24 @@
 
 import logging
 
-from rich.console import Console
-from rich.logging import RichHandler
-from pyvem._config import rich_theme
+import rich.console
+import rich.logging
 
-_console = Console(theme=rich_theme)
+from pyvem._config import rich_theme
 
 
 def get_rich_logger(
-    name,
-    level='DEBUG',
-    fmt='%(message)s',
-    datefmt='[%X] ',
-    console=None,
-):
+    name: str,
+    level: str = 'DEBUG',
+    fmt: str = '%(message)s',
+    datefmt: str = '[%X] ',
+    console: rich.console.Console = rich.console.Console(theme=rich_theme),
+) -> logging.Logger:
     """
     Create and return a logger of a given name and logging level.
 
     Arguments:
-        name {str} -- The name of the logger to return.
+        name -- The name of the logger to return.
 
     Keyword Arguments:
         level {logging.level} -- A log level (default: {'DEBUG'})
@@ -32,13 +31,12 @@ def get_rich_logger(
     Returns:
         logging.logger
     """
-    try:
-        log_level = logging.getLevelName(level)
-    except Exception as e:
+    log_level = logging.getLevelName(level)
+    if log_level == f'Level {level}':
         log_level = logging.DEBUG
 
     formatter = logging.Formatter(fmt=fmt, datefmt=datefmt)
-    handler = RichHandler(console=console or _console)
+    handler = rich.logging.RichHandler(console=console)
     handler.setFormatter(formatter)
 
     logger = logging.getLogger(name)
