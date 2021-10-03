@@ -5,6 +5,7 @@ import math
 import os
 import socket
 import subprocess
+from typing import List, Dict, Any
 
 
 def props(cls):
@@ -17,7 +18,7 @@ def props(cls):
     return [i for i in cls.__dict__.keys() if i[:1] != '_']
 
 
-def get_public_attributes(obj):
+def get_public_attributes(obj: Dict[str, Any]) -> Dict[str, Any]:
     """
     Return a dict containing only the non-underscored attributes from
     an object
@@ -26,13 +27,13 @@ def get_public_attributes(obj):
         obj {dict} -- A dict
     """
     attributes = {}
-    for k, v in obj.__dict__.items():
-        if not k.startswith('_'):
-            attributes[k] = v
+    for key, value in obj.__dict__.items():
+        if not key.startswith('_'):
+            attributes[key] = value
     return attributes
 
 
-def resolved_path(path):
+def resolved_path(path: str) -> str:
     """
     Resolve and normalize a path by:
     - handling tilde expansion
@@ -41,7 +42,7 @@ def resolved_path(path):
     - resolving symbolic links
 
     Arguments:
-        path {str} -- A file-system path
+        path -- A file-system path
 
     Returns:
         str
@@ -49,28 +50,23 @@ def resolved_path(path):
     return os.path.realpath(os.path.expandvars(os.path.expanduser(path)))
 
 
-def expanded_path(path):
+def expanded_path(path: str) -> str:
     """
     Expand a path to resolve variables, home directory, and relative paths
     and returns an absolute path.
 
     Arguments:
-        path {str} -- A file-system path
+        path -- A file-system path
 
     Returns:
-        str -- An expanded file-system path, regardless of whether or not
-            the path actually exists.
+        An expanded file-system path, regardless of whether or not the path
+        actually exists.
     """
     return os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
 
 
-def has_internet_connection():
-    """
-    Check if the system currently has a functioning internet connection
-
-    Returns:
-        bool
-    """
+def has_internet_connection() -> bool:
+    """Check if the system currently has a functioning internet connection"""
     try:
         host = socket.gethostbyname('1.1.1.1')
         sock = socket.create_connection((host, 80), 2)
@@ -80,47 +76,39 @@ def has_internet_connection():
         return False
 
 
-def truthy_list(list_to_filter):
-    """
-    Remove "falsy" elements from a list, leaving only the elements
-    that evaluate to True
-
-    Arguments:
-        list_to_filter {list} -- The list to filter
-
-    Returns:
-        list -- The filtered list
-    """
+def truthy_list(list_to_filter) -> List[Any]:
+    """Removes "falsy" elements from a list"""
     return list(filter(None, list_to_filter))
 
 
-def dict_from_list_key(list_to_search, key, value, default_response=None):
+def dict_from_list_key(list_to_search: List[Any], key: str, value: str,
+                       default_response: Any = None) -> Dict[str, Any]:
     """
     Return the first item from a list of dicts where a specified key in the
     dict matches a specified value
 
     Arguments:
-        list_to_search {list} -- The list to search
-        key {str} -- The name of the key to check the value of
-        value {str} -- The matching key value to search for
+        list_to_search -- The list to search
+        key -- The name of the key to check the value of
+        value -- The matching key value to search for
 
     Keyword Arguments:
-        default_response {any} -- The prefered response to return if no match
-            is found with the given arguments
+        default_response -- Value to return if no match is found
 
     Returns:
         dict -- The matching dict or None if not found
     """
-    data_type = type(list_to_search)
-    if data_type is not list:
-        raise AttributeError('Expected a list, got a %s' % data_type.__name__)
+
+    if not isinstance(list_to_search, List):
+        raise AttributeError('Expected a list, got a '
+                             f'{type(list_to_search).__name__}')
 
     try:
         return next(x for x in list_to_search if x.get(key) == value)
     except TypeError:
         return default_response
     except (KeyError, AttributeError, ValueError, StopIteration) as err:
-        print(err)
+        print(repr(err))
         return default_response
 
 
@@ -139,8 +127,8 @@ def human_number_format(number):
     magnitude = int(math.floor(math.log(number, k)))
 
     if magnitude == 0:
-        return '%d%s' % (number / k**magnitude, units[magnitude])
-    return '%.1f%s' % (number / k**magnitude, units[magnitude])
+        return f'{number / k**magnitude}{units[magnitude]}'
+    return f'{(number / k**magnitude):.1f}{units[magnitude]}'
 
 
 def shell_dimensions():
@@ -150,26 +138,11 @@ def shell_dimensions():
     Returns:
         tuple(int, int)
     """
-    with subprocess.Popen(['stty', 'size'], stdout=subprocess.PIPE, encoding='utf-8') as proc:
+    with subprocess.Popen(['stty', 'size'],
+                          stdout=subprocess.PIPE,
+                          encoding='utf-8') as proc:
         rows, columns = proc.stdout.readline().split(' ')
         return int(rows), int(columns)
-
-
-def less(content):
-    """
-    Invoke a `less` subprocess, passing it content and receiving user
-    stdin on the less process.
-
-    Arguments:
-        content {str} -- The content to display
-    """
-    process = subprocess.Popen(["less"], stdin=subprocess.PIPE)
-
-    try:
-        process.stdin.write(content)
-        process.communicate()
-    except TypeError:
-        less(content.encode())
 
 
 def iso_now(include_microseconds=False, format_for_path=True):
@@ -229,33 +202,34 @@ def get_confirmation(question):
     Returns:
         bool -- True if the user answered "yes". False if "no"
     """
-    question = '{} [y/n]: '.format(question)
+    question = f'{question} [y/n]: '
     answer = None
     while answer not in ['y', 'yes', 'n', 'no']:
         answer = str(input(question)).lower().strip()
     return answer[0] == 'y'
 
 
-def get_response(prompt, default=None):
+def get_response(prompt: str, default: str = None) -> str:
     """
-    Prompts the user for a response. If a default value is provided, the user
-    if allowed to provide an empty response, which will return the default.
-    If no default value is provided, the function continues to prompt the user
-    until a non-empty response is received.
+    Prompts the user for a response.
+
+    If a default value is provided, the user is allowed to provide an empty
+    response, which will return the default. If no default value is provided,
+    the function continues to prompt the user until a non-empty response is
+    provided.
 
     Arguments:
-        prompt {str} -- The prompt value
-        default {str|None} -- The default value to include in the prompt, which
-            will be the value returned if the user does not otherwise provde a
-            response.
+        prompt -- The prompt text
+        default -- The default value to include in the prompt, which will be
+            the value returned if the user does not otherwise provde a response
 
     Returns:
-        str -- A non-empty response from the user.
+        A non-empty response from the user
     """
     if default:
-        prompt = '{} ({}): '.format(prompt, default)
+        prompt = f'{prompt} ({default}): '
     else:
-        prompt = '{}: '.format(prompt)
+        prompt = f'{prompt}: '
 
     answer = None
     while not answer or len(answer) == 0:
