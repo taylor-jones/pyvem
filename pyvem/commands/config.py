@@ -147,8 +147,8 @@ class ConfigCommand(Command):
                           encoding=locale.getpreferredencoding()):
                     pass
             else:
-                _CONSOLE.print('[error]No configuration can be set without '
-                               'a config file.[/]')
+                self.show_error('No configuration can be set without a config'
+                                'file.')
 
 
         # Open the config file and read it's contents into a dict
@@ -179,8 +179,8 @@ class ConfigCommand(Command):
         # make sure there's a config file to read from
         self._fetch_configurations()
         if not self.conf_file:
-            _CONSOLE.print('[error]No configuration can be removed without '
-                           'a config file.[/]')
+            self.show_error('No configuration can be removed without a '
+                            'config file.')
             return False
 
         # Open the config file and read it's contents into a dict
