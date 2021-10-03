@@ -13,9 +13,10 @@ _HELP = Help(
     synopsis=f'{_PROG} info <extension>\n'
              f'{_PROG} info <extension>[[@<version>]]\n\n'
              f'[h2]aliases[/]: {_PROG} show, {_PROG} view',
-    description='This command shows data about an extension from the VSCode Marketplace. '
-                'The default extension version is "latest", unless otherwise specified. '
-                'The info command accepts 1+ extension at a time.'
+    description='This command shows data about an extension from the VSCode '
+                'Marketplace. The default extension version is "latest", '
+                'unless otherwise specified. The info command accepts 1+ '
+                'extension at a time.'
 )
 
 
@@ -49,7 +50,8 @@ class InfoCommand(Command):
             for arg in args:
                 Command.marketplace.get_extension_info(arg)
         else:
-            self.show_error(f'The [i]"info"[/] command expects 1+ arguments ({arg_count} given).')
+            self.show_error('The [i]"info"[/] command expects 1+ arguments '
+                            f'({arg_count} given).')
 
 
 #
