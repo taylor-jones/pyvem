@@ -1,5 +1,7 @@
+"""Utility functions for other tests"""
+
+import os
 import requests
-from os import getenv
 
 from pyvem._util import has_internet_connection
 from pyvem._containers import ConnectionParts
@@ -22,7 +24,7 @@ def should_skip_remote_testing():
     if not has_internet_connection():
         should_skip = True
         reason = 'No internet connection'
-    elif bool(getenv('NO_REMOTE', False)):
+    elif os.getenv('NO_REMOTE', None):
         should_skip = True
         reason = 'NO_REMOTE env var was set'
     return should_skip, reason
@@ -41,21 +43,27 @@ def github_get(url):
 
     Arguments:
         url {str} -- The URL to make the GET request to
-    
+
     Returns:
         int -- The response status code
     """
-    MAX_CONTENT_LEN = 1
+    max_content_len = 1
     response = requests.get(url, stream=True)
 
     try:
-        if int(response.headers.get('Content-Length')) > MAX_CONTENT_LEN:
+        if int(response.headers.get('Content-Length')) > max_content_len:
             raise ValueError
     except ValueError:
         return response.status_code
 
 
-def get_dummy_tunnel_connection(with_gateway=True):
+def get_dummy_tunnel_connection(with_gateway=True) -> Tunnel:
+    """
+    Simulates a dummy tunnel connection using generic host and password.
+
+    FIXME: right now, this is hard-coded to a local virtual environment with
+    dummy configurations. Find a way to simulate this in a test env.
+    """
     ssh_host = ConnectionParts(hostname='centos', password='pass')
 
     if not with_gateway:

@@ -1,5 +1,7 @@
-from __future__ import print_function
-from distutils.spawn import find_executable
+"""Tests functionality of the Extension class"""
+
+# pylint: disable=missing-class-docstring
+# pylint: disable=missing-function-docstring
 
 import sys
 import unittest
@@ -18,45 +20,44 @@ from pyvem.tests.test_util import (
     github_get
 )
 
-
 _KNOWN_GITHUB_EXTENSION_UID = 'ms-vscode.cpptools'
 _KNOWN_MARKETPLACE_EXTENSION_UID = 'twxs.cmake'
-_tunnel = get_dummy_tunnel_connection(True)
+_TUNNEL = get_dummy_tunnel_connection(True)
 
 
 @unittest.skipIf(*should_skip_remote_testing())
 class TestGithubExtensions(unittest.TestCase):
     def test_github_extension_is_extension(self):
-        e = get_extension(_KNOWN_GITHUB_EXTENSION_UID, tunnel=_tunnel)
-        self.assertIsInstance(e, Extension)
-        self.assertFalse(e.should_download_from_marketplace)
+        ext = get_extension(_KNOWN_GITHUB_EXTENSION_UID, tunnel=_TUNNEL)
+        self.assertIsInstance(ext, Extension)
+        self.assertFalse(ext.should_download_from_marketplace)
 
     def test_github_extension_is_recognized(self):
-        e = get_extension(_KNOWN_GITHUB_EXTENSION_UID, tunnel=_tunnel)
-        self.assertIsInstance(e, GithubExtension)
-        self.assertFalse(e.should_download_from_marketplace)
+        ext = get_extension(_KNOWN_GITHUB_EXTENSION_UID, tunnel=_TUNNEL)
+        self.assertIsInstance(ext, GithubExtension)
+        self.assertFalse(ext.should_download_from_marketplace)
 
     def test_github_extension_latest_download_url_is_valid(self):
-        e = get_extension(_KNOWN_GITHUB_EXTENSION_UID, tunnel=_tunnel)
-        url = e.download_url
+        ext = get_extension(_KNOWN_GITHUB_EXTENSION_UID, tunnel=_TUNNEL)
+        url = ext.download_url
         self.assertIsNotNone(url)
         self.assertEqual(github_get(url), 200)
 
     def test_github_extension_release_download_url_is_valid(self):
-        e = get_extension(
+        ext = get_extension(
             _KNOWN_GITHUB_EXTENSION_UID,
             release='0.27.0',
-            tunnel=_tunnel)
-        url = e.download_url
+            tunnel=_TUNNEL)
+        url = ext.download_url
         self.assertIsNotNone(url)
         self.assertEqual(github_get(url), 200)
 
     def test_github_extension_invalid_release_download_url_is_not_found(self):
-        e = get_extension(
+        ext = get_extension(
             _KNOWN_GITHUB_EXTENSION_UID,
             release='0.0.0',
-            tunnel=_tunnel)
-        url = e.download_url
+            tunnel=_TUNNEL)
+        url = ext.download_url
         self.assertIsNotNone(url)
         self.assertEqual(github_get(url), 404)
 
@@ -64,18 +65,18 @@ class TestGithubExtensions(unittest.TestCase):
 @unittest.skipIf(*should_skip_remote_testing())
 class TestMarketplaceExtensions(unittest.TestCase):
     def test_marketplace_extension_is_recognized(self):
-        e = get_extension(_KNOWN_MARKETPLACE_EXTENSION_UID, tunnel=_tunnel)
-        self.assertIsInstance(e, MarketplaceExtension)
-        self.assertTrue(e.should_download_from_marketplace)
+        ext = get_extension(_KNOWN_MARKETPLACE_EXTENSION_UID, tunnel=_TUNNEL)
+        self.assertIsInstance(ext, MarketplaceExtension)
+        self.assertTrue(ext.should_download_from_marketplace)
 
     def test_marketplace_extension_is_extension(self):
-        e = get_extension(_KNOWN_MARKETPLACE_EXTENSION_UID, tunnel=_tunnel)
-        self.assertIsInstance(e, Extension)
-        self.assertTrue(e.should_download_from_marketplace)
+        ext = get_extension(_KNOWN_MARKETPLACE_EXTENSION_UID, tunnel=_TUNNEL)
+        self.assertIsInstance(ext, Extension)
+        self.assertTrue(ext.should_download_from_marketplace)
 
     def test_marketplace_extension_download_url_is_valid(self):
-        e = get_extension(_KNOWN_MARKETPLACE_EXTENSION_UID, tunnel=_tunnel)
-        url = e.download_url
+        ext = get_extension(_KNOWN_MARKETPLACE_EXTENSION_UID, tunnel=_TUNNEL)
+        url = ext.download_url
         self.assertIsNotNone(url)
 
         response = requests.head(url, allow_redirects=True)
