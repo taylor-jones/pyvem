@@ -37,6 +37,10 @@ class Command():
         self.help: Help = help
         self.aliases: List[str] = aliases or []
 
+        # Override to True within the derived Command class in order to hide
+        # the command from the general list of "all commands".
+        self.is_hidden: bool = False
+
         # Keep track of whether this program created the local output dir.
         # If we created it, we'll delete it. If we didn't create it, we won't
         # delete it.

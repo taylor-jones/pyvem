@@ -48,6 +48,7 @@ class HelpCommand(Command):
     """
     def __init__(self, name, aliases=None):
         super().__init__(name, _HELP, aliases=aliases or [])
+        self.is_hidden = True
 
     def get_command_parser(self, *args, **kwargs):
         """No custom command parser implementation is needed."""

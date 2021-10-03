@@ -1,13 +1,15 @@
 """Commands command implementation"""
 
+import os
 import sys
-from typing import List, Dict
+from typing import List
 
 from pyvem._command import Command
 from pyvem._config import _PROG
 from pyvem._help import Help
 from pyvem._logging import get_rich_logger
 
+# pylint: disable=unused-import
 from pyvem.commands.config import config_command
 from pyvem.commands.help import help_command
 from pyvem.commands.info import info_command
@@ -35,6 +37,7 @@ class CommandsCommand(Command):
     """
     def __init__(self, name, aliases=None):
         super().__init__(name, _HELP, aliases=aliases or [])
+        self.is_hidden = True
 
     def get_command_parser(self, *args, **kwargs):
         pass
@@ -46,7 +49,7 @@ class CommandsCommand(Command):
         # Update the logger to apply the log-level from the main options
         self.apply_log_level(_LOGGER)
 
-        for cmd in get_command_objs():
+        for cmd in get_command_objs(True):
             print('* ', cmd.help.heading)
 
         sys.exit(0)
@@ -66,9 +69,8 @@ def get_command_list():
     Returns:
         list
     """
-    from os import path, listdir
-    here = path.dirname(__file__)
-    cmds = [f.split('.')[0] for f in listdir(here) if not f.startswith('_')]
+    here = os.path.dirname(__file__)
+    cmds = [f.split('.')[0] for f in os.listdir(here) if not f.startswith('_')]
     return sorted(cmds)
 
 
@@ -79,16 +81,16 @@ def get_command_map():
     Returns:
         dict -- A flattened, 1D dict of all names and aliases.
     """
-    mapped = dict()
+    mapped = {}
     commands_and_keys = set()
 
     def map_aliases(obj):
-        for x in obj.aliases:
-            mapped[x] = obj.name
-            commands_and_keys.add(x)
+        for alias in obj.aliases:
+            mapped[alias] = obj.name
+            commands_and_keys.add(alias)
 
-    for c in _COMMAND_NAMES:
-        obj = getattr(sys.modules[__name__], '%s_command' % c)
+    for cmd in _COMMAND_NAMES:
+        obj = getattr(sys.modules[__name__], f'{cmd}_command')
         map_aliases(obj)
 
     return mapped, commands_and_keys
@@ -96,43 +98,36 @@ def get_command_map():
 
 def resolved_command(command_name: str) -> str:
     """
-    Returns the name of a registered command given a command name or alias
-    to check against. If the input command does not match any registered
-    command or alias, None is returned.
-
-    Arguments:
-        command_name {str}
+    Returns the name of a registered command given a command name or alias to
+    check against. If the input command does not match any registered command
+    or alias, None is returned.
 
     Returns:
-        str -- The name of a registered command.
+        The name of a registered command.
     """
     return _COMMAND_MAP.get(command_name, None)
 
 
 def get_command_obj(command_name: str) -> Command:
     """
-    Returns and instance of a registered command object associated with
-    the command argument.
-
-    Arguments:
-        command_name {str}
-
-    Returns:
-        Command
+    Returns an instance of a registered Command object associated with the
+    command argument.
     """
     if command_name == 'commands':
         return commands_command
 
-    resolved_cmd_name = resolved_command(command_name)
-    if resolved_cmd_name:
-        return getattr(sys.modules[__name__], '%s_command' % resolved_cmd_name)
+    resolved_name = resolved_command(command_name)
+    if resolved_name:
+        return getattr(sys.modules[__name__], f'{resolved_name}_command')
 
 
-def get_command_objs() -> List[Command]:
-    """
-    Returns a list of all Command objects
-    """
-    return [get_command_obj(x) for x in get_command_list()]
+def get_command_objs(include_hidden_commands: bool = False) -> List[Command]:
+    """Returns a list of all Command objects"""
+    command_objects = [get_command_obj(x) for x in get_command_list()]
+
+    if include_hidden_commands:
+        return command_objects
+    return [x for x in command_objects if not x.is_hidden]
 
 
 _COMMAND_NAMES = sorted([x for x in get_command_list() if x])
