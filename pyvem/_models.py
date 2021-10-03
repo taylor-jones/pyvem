@@ -1,22 +1,27 @@
 """VSCode Marketplace interfaces"""
 
+from typing import Dict
 from pyvem._containers import AttributeDict
+
+# pylint: disable=pointless-string-statement
 
 '''
 https://github.com/microsoft/azure-devops-node-api/blob/dcf730b1426fb559d6fe2715223d4a7f3b56ef27/api/interfaces/GalleryInterfaces.ts#L627
 '''
-ExtensionQueryFilterType = AttributeDict({
+ExtensionQueryFilterType: Dict[str, int] = AttributeDict({
     # The values are used as tags. All tags are treated as "OR" conditions with
     # each other. There may be some value put on the number of matched tags
     # from the query.
     #
     'Tag': 1,
     #
-    # The Values are an ExtensionName or fragment that is used to match other extension names.
+    # The Values are an ExtensionName or fragment that is used to match other
+    # extension names.
     #
     'DisplayName': 2,
     #
-    # The Filter is one or more tokens that define what scope to return private extensions for.
+    # The Filter is one or more tokens that define what scope to return private
+    # extensions for.
     #
     'Private': 3,
     #
@@ -45,7 +50,8 @@ ExtensionQueryFilterType = AttributeDict({
     #
     'InstallationTarget': 8,
     #
-    # Query for featured extensions, no value is allowed when using the query type.
+    # Query for featured extensions, no value is allowed when using the query
+    # type.
     #
     'Featured': 9,
     #
@@ -58,13 +64,15 @@ ExtensionQueryFilterType = AttributeDict({
     #
     'FeaturedInCategory': 11,
     #
-    # When retrieving extensions from a query, exclude the extensions which are having the given
-    # flags. The value specified for this filter should be a string representing the integer values
-    # of the flags to be excluded. In case of mulitple flags to be specified, a logical OR of the
-    # interger values should be given as value for this filter This should be at most one filter
-    # of this type. This only acts as a restrictive filter after. In case of having a particular
-    # flag in both IncludeWithFlags and ExcludeWithFlags, excludeFlags will remove the included
-    # extensions giving empty result for that flag.
+    # When retrieving extensions from a query, exclude the extensions which are
+    # having the given flags. The value specified for this filter should be a
+    # string representing the integer values of the flags to be excluded. In
+    # case of mulitple flags to be specified, a logical OR of the interger
+    # values should be given as value for this filter This should be at most
+    # one filter of this type. This only acts as a restrictive filter after.
+    # In case of having a particular flag in both IncludeWithFlags and
+    # ExcludeWithFlags, excludeFlags will remove the included extensions giving
+    # empty result for that flag.
     #
     'ExcludeWithFlags': 12,
     #
@@ -101,15 +109,18 @@ ExtensionQueryFilterType = AttributeDict({
     #
     'InstallationTargetVersionRange': 16,
     #
-    # Filter type for specifying metadata key and value to be used for filtering.
+    # Filter type for specifying metadata key and value to be used for
+    # filtering.
     #
     'VsixMetadata': 17,
     #
-    # Filter to get extensions published by a publisher having supplied internal name
+    # Filter to get extensions published by a publisher having supplied
+    # internal name
     #
     'PublisherName': 18,
     #
-    # Filter to get extensions published by all publishers having supplied display name
+    # Filter to get extensions published by all publishers having supplied
+    # display name
     #
     'PublisherDisplayName': 19,
     #
@@ -134,7 +145,7 @@ ExtensionQueryFilterType = AttributeDict({
 '''
 https://github.com/microsoft/azure-devops-node-api/blob/dcf730b1426fb559d6fe2715223d4a7f3b56ef27/api/interfaces/GalleryInterfaces.ts#L717
 '''
-ExtensionQueryFlags = AttributeDict({
+ExtensionQueryFlags: Dict[str, int] = AttributeDict({
     #
     # None is used to retrieve only the basic extension details.
     #
@@ -238,7 +249,7 @@ Defines the sort order that can be defined for Extensions query
 
 https://github.com/microsoft/azure-devops-node-api/blob/dcf730b1426fb559d6fe2715223d4a7f3b56ef27/api/interfaces/GalleryInterfaces.ts#L1739
 '''
-ExtensionQuerySortByTypes = AttributeDict({
+ExtensionQuerySortByTypes: Dict[str, int] = AttributeDict({
     #
     # The results will be sorted by relevance in case search query is given,
     # if no search query resutls will be provided as is
@@ -278,7 +289,8 @@ ExtensionQuerySortByTypes = AttributeDict({
     #
     'TrendingWeekly': 8,
     #
-    # The results will be sorted as per Trending monthly Score of the extensions
+    # The results will be sorted as per Trending monthly Score of the
+    # extensions
     #
     'TrendingMonthly': 9,
     #
