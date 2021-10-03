@@ -7,8 +7,10 @@ from pyvem._config import _PROG
 from pyvem._help import Help
 from pyvem._logging import get_rich_logger
 
-# Import each of the other commands so their 'help' methods can be invoked from here.
-# This is the only command that needs to import all of the other commands.
+# Import each of the other commands so their 'help' methods can be invoked
+# from here. NOTE: Don't import the `commands_command` module, because that
+# would introduce a circular dependency
+
 # pylint: disable=unused-import
 # flake8: noqa:401
 from pyvem.commands.config import config_command
@@ -26,14 +28,16 @@ _HELP = Help(
     name='help',
     brief='Show help documentation',
     synopsis=f'{_PROG} help <command>',
-    description=f'This command will show help documentation for other {_PROG} commands. '
-                'If the provided [keyword]<command>[/] is not valid or no help documentation '
-                'exists, the help command will display:'
-                '\n\t[example]No help documentation is available for the command '
-                '[keyword]<command>[/][/]'
-                '\n\n'
-                'If no command (or no valid command) is passed to the help command, then '
-                f'{_PROG}\'s default help output is printed to stdout.'
+    description= \
+        f'This command will show help documentation for other {_PROG} '
+        f'commands. If the provided [keyword]<command>[/keyword] is not valid '
+        'or no help documentation exists, the help command will display:'
+        '\n\t'
+        '[example]No help documentation is available for the command '
+        '[keyword]<command>[/][/]'
+        '\n\n'
+        'If no command (or no valid command) is passed to the [example]help[/] '
+        f'command, then {_PROG}\'s default help output is printed to stdout.'
 )
 
 
@@ -45,18 +49,13 @@ class HelpCommand(Command):
     def __init__(self, name, aliases=None):
         super().__init__(name, _HELP, aliases=aliases or [])
 
-
     def get_command_parser(self, *args, **kwargs):
-        """
-        No custom command parser implementation is needed for the Help command.
-        """
+        """No custom command parser implementation is needed."""
         return None
 
-
-    def run(self, *args, **kwargs):
-        """
-        Implements the `help` commands functionality.
-        """
+    # def run(self, *args, **kwargs):
+    def run(self, *args, **kwargs) -> None:
+        """Implements the `help` commands functionality."""
         # Update the logger to apply the log-level from the main options
         self.apply_log_level(_LOGGER)
 
@@ -71,12 +70,13 @@ class HelpCommand(Command):
         command_name = args[0]
 
         try:
-            # determine which command the user asked for help about. Then
-            # invoke the help for that command.
+            # determine which command the user asked for help about.
+            # Then invoke the help for that command.
             command = getattr(sys.modules[__name__], f'{command_name}_command')
             command.show_help()
         except AttributeError:
-            _LOGGER.error('No help documentation is available for command: "%s"', command_name)
+            _LOGGER.error('There is no help documentation is available for '
+                          'the command: "%s"', command_name)
 
 
 #
