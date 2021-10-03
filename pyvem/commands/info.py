@@ -29,13 +29,9 @@ class InfoCommand(Command):
     def __init__(self, name, aliases=None):
         super().__init__(name, _HELP, aliases=aliases or [])
 
-
     def get_command_parser(self, *args, **kwargs):
-        """
-        No custom command parser implementation is needed for the Info command.
-        """
+        """No custom command parser implementation needed"""
         return None
-
 
     def run(self, *args, **kwargs):
         # Update the logger to apply the log-level from the main options
