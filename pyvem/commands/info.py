@@ -48,7 +48,7 @@ class InfoCommand(Command):
         if arg_count:
             Command.tunnel.connect()
             for arg in args:
-                Command.marketplace.get_extension_info(arg)
+                Command.marketplace.show_extension_info(arg)
         else:
             self.show_error('The [i]"info"[/] command expects 1+ arguments '
                             f'({arg_count} given).')
