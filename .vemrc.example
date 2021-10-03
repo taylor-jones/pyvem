@@ -1,0 +1,4 @@
+output-dir: /tmp
+# ssh-gateway: centos2
+# ssh-host: centos
+ssh-host: centos2
