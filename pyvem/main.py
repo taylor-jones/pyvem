@@ -3,6 +3,7 @@
 import sys
 import logging
 from getpass import getuser
+from typing import List
 
 import configargparse
 from fuzzywuzzy import process
@@ -11,53 +12,50 @@ from rich.console import Console
 from pyvem._util import iso_now, resolved_path
 from pyvem._editor import SupportedEditorCommands
 
-from pyvem.commands import _COMMAND_NAMES
-from pyvem.commands import _COMMAND_NAMES_AND_ALIASES
-from pyvem.commands import get_command_obj
+from pyvem.commands.commands import _COMMAND_NAMES
+from pyvem.commands.commands import _COMMAND_NAMES_AND_ALIASES
+from pyvem.commands.commands import get_command_obj
 
 from pyvem._command import Command
 from pyvem._config import _PROG, rich_theme
 from pyvem._containers import parsed_connection_parts
 from pyvem._logging import get_rich_logger
 
-_console = Console(theme=rich_theme)
-_LOGGER = get_rich_logger(__name__, console=_console)
+_CONSOLE = Console(theme=rich_theme)
+_LOGGER = get_rich_logger(__name__, console=_CONSOLE)
 _FUZZYISH_COMMAND_THRESHOLD = 50
 _TMP_OUTPUT_DIR = f'/tmp/{getuser()}-{_PROG}-{iso_now()}'
 
 
-def get_similar_commands(command):
+def get_similar_commands(command: str) -> List[str]:
     """
-    Perform a fuzzy check for similar command names to a given command. Only values meeting or
-    exceeding the _FUZZYISH_COMMAND_THRESHOLD are returned.
+    Perform a fuzzy check for similar command names to a given command. Only
+    values meeting or exceeding the _FUZZYISH_COMMAND_THRESHOLD are returned.
 
     Arguments:
-        command {str}
+        command
 
     Returns:
-        list -- A list of fuzzy matches that meet a pre-determiend threshold.
+        A list of fuzzy matches that meet a pre-determiend threshold.
     """
-    return [x[0] for x in process.extract(query=command, choices=_COMMAND_NAMES_AND_ALIASES)
+    return [x[0] for x in process.extract(query=command,
+                                          choices=_COMMAND_NAMES_AND_ALIASES)
             if x[1] > _FUZZYISH_COMMAND_THRESHOLD]
 
 
-def create_main_parser():
-    """
-    Create and returns the main parser for vem's CLI.
-
-    Returns:
-        ConfigArgParse.ArgParser
-    """
+def create_main_parser() -> configargparse.ArgParser:
+    """Creates and returns the main parser for vem's CLI."""
     #
     # setup the parser
     #
     parser_kwargs = {
-        'usage': f'{_PROG} <command> [options]'
-                 f'\n\nwhere <command> is one of:\n\t{", ".join(_COMMAND_NAMES)}'
-                 f'\n\nFor help about a specific command:'
-                 f'\n\t{_PROG} help <command>',
+        'usage': f'{_PROG} <{"|".join(_COMMAND_NAMES)}> [options]\n\n'
+                'For help about a specific command:\n\t'
+                 f'[example]{_PROG} help <command>[/]',
         'add_help': False,
-        'default_config_files': ['.vemrc', '~/.vemrc', '~/.config/.vemrc'],
+        'default_config_files': ['.vemrc', '~/.vemrc', '~/.config/.vemrc',
+                                 '.vemrc.yml', '~/.vemrc.yml',
+                                 '~/.config/.vemrc.yml'],
         'prog': _PROG,
         'description': 'VSCode CLI helper for editors and extensions'
     }
@@ -178,9 +176,8 @@ def create_main_parser():
 
 
 def main():
-    """
-    Main entry point for the program
-    """
+    """Main entry point for the program"""
+
     # get and parse the program arguments
     parser = create_main_parser()
     args, remainder = parser.parse_known_args()
@@ -202,7 +199,7 @@ def main():
         if args.version:
             args.command = 'version'
         else:
-            parser.print_help()
+            _CONSOLE.print(parser.format_help(), highlight=False)
             sys.exit(1)
 
     # Check if the provided command matches one of the registered commands.
@@ -214,25 +211,26 @@ def main():
     if isinstance(command, Command):
         command.invoke(parser, args)
 
-    # Otheriwse, check if the user just requested to show help. If so, print the help info.
+    # Otheriwse, check if the user just requested to show help. If so, print
+    # the help info.
     elif args.help:
-        parser.print_help()
+        _CONSOLE.print(parser.format_help(), highlight=False)
 
     # Otherwise, the user gave an invalid request.
     else:
-        _console.print(f'[error]"{args.command}" is not a valid {_PROG} command[/].\n')
-        # TODO: Add a check for unknown command arguments in the config file??
-        # FIXME: What did I mean by the TODO statement above?
+        _CONSOLE.print(f'[error]"{args.command}" is not a valid {_PROG} '
+                       'command[/].\n')
 
-        # Check for similar commands. If any similar-enough matches were found, suggest them.
+        # Check for similar commands. If any similar-enough matches were found,
+        # suggest them.
         similar_commands = get_similar_commands(args.command)
         if similar_commands:
-            print(f'Maybe you meant one of these commands?\n\t{", ".join(similar_commands)}\n')
+            _CONSOLE.print('Maybe you meant one of these commands?\n\t'
+                           f'[i]{", ".join(similar_commands)}\n[/]')
 
         # Whether or not any similar commands were found, print the usage,
         # along with an extra empty line to create a little spacing.
-        parser.print_usage()
-        print('')
+        _CONSOLE.print(parser.usage + '\n', highlight=False)
 
 
 if __name__ == "__main__":
